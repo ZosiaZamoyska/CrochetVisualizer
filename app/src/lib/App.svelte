@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+
   let patternInput = "ch ch ch ch dc sc sc ch dc sc sc";
   let grid = [];
 
@@ -37,10 +38,6 @@
       }
     }
     if (row.length > 0) {
-      if (rowCount % 2 !== 0)
-      {
-        row = row.reverse();
-      }
       tempGrid.push(row); // Push the last row if not empty
     }
     
@@ -67,8 +64,46 @@
     grid = tempGrid.reverse(); // Final reverse to display bottom-up
   }
 
-  onMount(() => {
+  let p5;
+  
+  onMount(async () => {
     parsePattern(patternInput);
+
+    if (typeof window !== 'undefined') {
+      const module = await import('p5');
+      p5 = module.default;
+
+      new p5(p => {
+        p.setup = () => {
+          p.createCanvas(600, 400);
+        };
+
+        p.draw = () => {
+          p.background(255);
+          p.textSize(16);
+          p.textAlign(p.CENTER, p.CENTER);
+
+          const xStart = 50;
+          const yStart = 50; 
+          const stitchSize = 30;
+          const spacing = 5;
+
+          grid.forEach((row, rowIndex) => {
+            row.forEach((stitch, colIndex) => {
+              let xPos = xStart + colIndex * (stitchSize + spacing);
+              let yPos = yStart + rowIndex * (stitchSize + spacing);
+
+              if (stitch) {
+                p.fill(200);
+                p.rect(xPos, yPos, stitchSize, stitchSize);
+                p.fill(0);
+                p.text(stitch, xPos + stitchSize / 2, yPos + stitchSize / 2);
+              }
+            });
+          });
+        };
+      }, document.getElementById('p5-container'));
+    }
   });
 </script>
 
@@ -87,31 +122,16 @@
     padding: 20px;
     overflow: auto;
   }
-  .grid {
-    display: grid;
-    gap: 2px;
-  }
-  .row {
-    display: flex;
-  }
-  .stitch {
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    background: lightgray;
-    border: 1px solid black;
-    text-transform: uppercase;
-  }
   input {
     width: 100%;
-    height: 100%;
     font-size: 16px;
     padding: 10px;
     box-sizing: border-box;
     border: 1px solid #ccc;
+  }
+  #p5-container {
+    width: 100%;
+    height: 100%;
   }
 </style>
 
@@ -121,16 +141,6 @@
     <input type="text" bind:value={patternInput} on:change={() => parsePattern(patternInput)} placeholder="Enter crochet pattern">
   </div>
   
-  <!-- Right Section: Grid Visualization -->
-  <div class="grid-container">
-    <div class="grid">
-      {#each grid as row}
-        <div class="row">
-          {#each row as stitch}
-            <div class="stitch">{stitch || ''}</div>
-          {/each}
-        </div>
-      {/each}
-    </div>
-  </div>
+  <!-- Right Section: p5.js Visualization -->
+  <div class="grid-container" id="p5-container"></div>
 </div>
