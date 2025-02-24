@@ -4,62 +4,111 @@
   let patternInput = "ch ch ch ch dc sc sc ch dc sc sc";
   let grid = [];
   let p5Instance = null;
-
+  
   function parsePattern(input) {
     let stitches = input.split(" ");
     let tempGrid = [];
     let row = [];
-
-    let maxWidth = 0;
-    let rowCount = 0;
-    let base = 1;
-
+    
+    let rowIndex = 0;
+    let base = true;
+    
     for (let i = 0; i < stitches.length; i++) {
-      const stitch = stitches[i];
-
-      if (stitch === "ch") {
-        if (base === 1) {
-          row.push(stitch);
+        let stitch = stitches[i];
+        
+        if (stitch === "ch") {
+            if (base) {
+                row.push(stitch);
+            } else {
+                if (row.length > 0) {
+                    tempGrid.push(row);
+                    rowIndex++;
+                }
+                row = [];
+            }
+        } else {
+            if (base) {
+                base = false;
+                if (row.length > 0) {
+                    row.pop();
+                }
+                tempGrid.push(row);
+                rowIndex++;
+                row = [];
+            }
+            row.push(stitch);
         }
-        if (row.length > 0 && base === 0) {
-          tempGrid.push(row);
-          rowCount++;
-          row = [];
-        }
-      } else {
-        if (base === 1) {
-          base = 0;
-          row.pop();
-          tempGrid.push(row);
-          rowCount++;
-          row = [];
-        }
-        row.push(stitch);
-      }
     }
+
     if (row.length > 0) {
-      tempGrid.push(row);
+        tempGrid.push(row);
     }
 
-    maxWidth = Math.max(...tempGrid.map(r => r.length));
+    let minCol = 0;
+    let maxCol = 0;
+    let currentCol = 0;
 
-    tempGrid = tempGrid.map((r, idx) => {
-      if (idx % 2 !== 0) {
-        const nulls = new Array(maxWidth - r.length).fill(null);
-        return [...nulls, ...r];
-      }
-      return r;
-    });
+    for (let i = 0; i < tempGrid.length; i++) {
+        let r = tempGrid[i];
+        
+        if (i % 2 === 0) {
+            for (let j = 0; j < r.length; j++) {
+                currentCol++;
+                maxCol = Math.max(maxCol, currentCol);
+            }
+        } else {
+            for (let j = r.length - 1; j >= 0; j--) {
+                currentCol--;
+                minCol = Math.min(minCol, currentCol);
+            }
+        }
+    }
 
-    tempGrid = tempGrid.map(r => {
-      while (r.length < maxWidth) {
-        r.push(null);
-      }
-      return r;
-    });
+    let gridWidth = maxCol - minCol;
 
-    grid = tempGrid.reverse();
-  }
+    let normalizedGrid = [];
+    currentCol = 0;
+    let startIdx;
+    let lastIdx;
+    startIdx = Math.abs(minCol);
+    console.log(tempGrid);
+
+    for (let i = 0; i < tempGrid.length; i++) {
+        let r = tempGrid[i];
+        let paddedRow = new Array(gridWidth + 1).fill(null);
+
+        if (i === 0) {
+          for (let j = 0; j < r.length; j++) {
+                paddedRow[startIdx + j] = r[j];
+                lastIdx = startIdx + j;
+            }
+        } else {
+            if (i %2 === 0)
+            {
+              startIdx = lastIdx;
+              for (let j = 0; j < r.length; j++)
+              {
+                paddedRow[startIdx + j] = r[j];
+                lastIdx = startIdx + j;
+              }
+            }
+            else 
+            {
+              startIdx = lastIdx;
+              for (let j = 0; j < r.length; j++) {
+                  paddedRow[startIdx - j] = r[j];
+                  lastIdx = startIdx - j;
+              }
+            }
+        }
+
+        normalizedGrid.push(paddedRow);
+    }
+
+    grid = normalizedGrid.reverse();
+    console.log(grid);
+}
+
 
   let p5;
 
@@ -102,17 +151,37 @@
             });
           });
 
+          // Draw horizontal and vertical lines between neighbors
           p.stroke(0);
           p.strokeWeight(2);
-          for (let i = 1; i < positions.length; i++) {
-            let prev = positions[i - 1];
-            let curr = positions[i];
 
-            if (Math.abs(prev.x - curr.x) <= stitchSize + spacing && Math.abs(prev.y - curr.y) <= stitchSize + spacing) {
-              p.line(prev.x, prev.y, curr.x, curr.y);
+          // Horizontal lines (same row)
+          for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+            for (let colIndex = 0; colIndex < grid[rowIndex].length - 1; colIndex++) {
+              if (grid[rowIndex][colIndex] && grid[rowIndex][colIndex + 1]) {
+                let x1 = xStart + colIndex * (stitchSize + spacing);
+                let y1 = yStart + rowIndex * (stitchSize + spacing);
+                let x2 = xStart + (colIndex + 1) * (stitchSize + spacing);
+                let y2 = yStart + rowIndex * (stitchSize + spacing);
+                p.line(x1, y1, x2, y2);
+              }
             }
           }
 
+          // Vertical lines (same column)
+          for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
+            for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+              if (grid[rowIndex][colIndex] && grid[rowIndex + 1][colIndex]) {
+                let x1 = xStart + colIndex * (stitchSize + spacing);
+                let y1 = yStart + rowIndex * (stitchSize + spacing);
+                let x2 = xStart + colIndex * (stitchSize + spacing);
+                let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
+                p.line(x1, y1, x2, y2);
+              }
+            }
+          }
+
+          // Draw stitches
           positions.forEach(({ x, y, stitch }) => {
             p.fill(0, 200, 0);
             p.noStroke();
@@ -127,6 +196,7 @@
     }
   });
 </script>
+
 
 <style>
   .container {
