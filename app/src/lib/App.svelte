@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
 
-  let patternInput = "ch ch ch ch dc sc sc ch dc sc sc";
+  let patternInput = "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc";
   let grid = [];
   let p5Instance = null;
   
@@ -180,6 +180,62 @@
               }
             }
           }
+          // Draw arched lines for turns (end of one row to start of the next)
+          for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
+            // Only apply to even-indexed rows
+            if ((grid.length -rowIndex) % 2 === 0) {
+              let lastColIndex = grid[rowIndex].length - 1;
+              while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
+                lastColIndex--;
+              }
+
+              if (lastColIndex >= 0) {
+                // Get the position of the last stitch in the current row
+                let x1 = xStart + lastColIndex * (stitchSize + spacing);
+                let y1 = yStart + rowIndex * (stitchSize + spacing);
+
+                // Get the position of the stitch directly above in the same column (previous row)
+                let x2 = xStart + lastColIndex * (stitchSize + spacing);
+                let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
+
+                // Control points for Bezier curve (this makes the curve more pronounced)
+                let controlX1 = x1 + (stitchSize + spacing) / 2;
+                let controlY1 = y1;
+                let controlX2 = x2 + (stitchSize + spacing) / 2;
+                let controlY2 = y2;
+
+                // Draw the Bezier curve to connect the stitches
+                p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
+              }
+            }
+            else
+            {
+              let lastColIndex = 0;
+              while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
+                lastColIndex++;
+              }
+
+              if (lastColIndex >= 0) {
+                // Get the position of the last stitch in the current row
+                let x1 = xStart + lastColIndex * (stitchSize + spacing);
+                let y1 = yStart + rowIndex * (stitchSize + spacing);
+
+                // Get the position of the stitch directly above in the same column (previous row)
+                let x2 = xStart + lastColIndex * (stitchSize + spacing);
+                let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
+
+                // Control points for Bezier curve (this makes the curve more pronounced)
+                let controlX1 = x1 - (stitchSize + spacing) / 2;
+                let controlY1 = y1;
+                let controlX2 = x2 - (stitchSize + spacing) / 2;
+                let controlY2 = y2;
+
+                // Draw the Bezier curve to connect the stitches
+                p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
+              }
+            }
+          }
+
 
           // Draw stitches
           positions.forEach(({ x, y, stitch }) => {
