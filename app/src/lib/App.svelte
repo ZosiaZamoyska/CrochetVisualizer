@@ -155,7 +155,7 @@
           p.stroke(0);
           p.strokeWeight(2);
 
-          // Horizontal lines (same row)
+          // Horizontal arrows (same row)
           for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
             for (let colIndex = 0; colIndex < grid[rowIndex].length - 1; colIndex++) {
               if (grid[rowIndex][colIndex] && grid[rowIndex][colIndex + 1]) {
@@ -163,10 +163,37 @@
                 let y1 = yStart + rowIndex * (stitchSize + spacing);
                 let x2 = xStart + (colIndex + 1) * (stitchSize + spacing);
                 let y2 = yStart + rowIndex * (stitchSize + spacing);
+
                 p.line(x1, y1, x2, y2);
+
+                let arrowSize = 5;
+                let angle = Math.atan2(y2 - y1, x2 - x1);
+
+                // arrows
+                if ((grid.length - rowIndex) % 2 === 1)
+                {
+                  let arrowX1 = x2 - arrowSize * Math.cos(angle - Math.PI / 6) - spacing;
+                  let arrowY1 = y2 - arrowSize * Math.sin(angle - Math.PI / 6);
+                  let arrowX2 = x2 - arrowSize * Math.cos(angle + Math.PI / 6) - spacing;
+                  let arrowY2 = y2 - arrowSize * Math.sin(angle + Math.PI / 6);
+
+                  p.line(x2 - spacing, y2, arrowX1, arrowY1);
+                  p.line(x2 - spacing, y2, arrowX2, arrowY2);
+                }
+                else
+                {
+                  let arrowX1 = x1 + arrowSize * Math.cos(angle - Math.PI / 6) + spacing;
+                  let arrowY1 = y1 + arrowSize * Math.sin(angle - Math.PI / 6);
+                  let arrowX2 = x1 + arrowSize * Math.cos(angle + Math.PI / 6) + spacing;
+                  let arrowY2 = y1 + arrowSize * Math.sin(angle + Math.PI / 6);
+
+                  p.line(arrowX1, arrowY1, x1 + spacing, y1);
+                  p.line(arrowX2, arrowY2, x1 + spacing, y1);
+                }
               }
             }
           }
+
 
           // Vertical lines (same column)
           for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
