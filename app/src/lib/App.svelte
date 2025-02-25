@@ -8,7 +8,9 @@
   const patterns = {
     "Basic Chain": "ch ch ch ch ch ch ch ch",
     "Single Crochet Row": "ch ch ch ch ch ch ch ch sc sc sc sc sc sc sc",
-    "Granny Square": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc"
+    "Normal Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc",
+    "Up-Down Wave": "ch ch ch ch ch ch sc dc sc dc sc ch dc sc dc sc dc ch sc dc sc dc sc ch dc sc dc sc dc",
+    "Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc"
   };
 
   // Function to update patternInput and parse the pattern
