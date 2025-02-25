@@ -22,6 +22,35 @@
 
   let grid = [];
   let p5Instance = null;
+  let currentStep = 1;
+  let isPlaying = false;
+  let stitchesDone = patternInput.split(" ").length;;
+  let interval;
+
+  function playPattern() {
+    if (isPlaying) {
+      stopPlayback();
+      return;
+    }
+
+    isPlaying = true;
+    currentStep = 2;
+
+    interval = setInterval(() => {
+      if (currentStep <= patternInput.length) {
+        let partialPattern = patternInput.substring(0, currentStep);
+        stitchesDone = partialPattern.split(" ").length;
+        parsePattern(patternInput);
+        currentStep+=3;
+      } else {
+        stopPlayback();
+      }
+    }, 700);
+  }
+  function stopPlayback() {
+    clearInterval(interval);
+    isPlaying = false;
+  }
   
   function parsePattern(input) {
     let stitches = input.split(" ");
@@ -307,19 +336,68 @@
           }
 
           // Draw stitches
-          positions.forEach(({ x, y, stitch }) => {
-            //console.log(stitch);
-            if (stitch)
+          let count = 0;
+          for (let rowIndex = 0; rowIndex < grid.length; rowIndex++)
+          {
+            if (rowIndex%2 == 0)
             {
-              p.fill(0, 200, 0);
-              p.noStroke();
-              let offset = 0;
-              p.ellipse(x, y - offset, ovalSize, ovalSize);
+              for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++)
+              {
+                if (positions_null[rowIndex][colIndex].stitch)
+                {
+                  let x = positions_null[rowIndex][colIndex].x;
+                  let y = positions_null[rowIndex][colIndex].y;
+                  let stitch = positions_null[rowIndex][colIndex].stitch;
+                  count += 1;
+                  p.fill(0, 200, 0);
+                  if (count >= stitchesDone && isPlaying)
+                    p.fill(180);
+          
+                  p.noStroke();
+                  if (stitch == 'dc')
+                  { 
+                    p.strokeWeight(1);
+                    p.stroke(100);
+                  }
+                  p.ellipse(x, y, ovalSize, ovalSize);
 
-              p.fill(255);
-              p.text(stitch, x, y - offset);
+                  p.noStroke();
+                  p.fill(255);
+                  p.text(stitch, x, y);
+                }
+
+              }
             }
-          });
+            else
+            {
+              for (let colIndex = grid[rowIndex].length-1; colIndex >=0; colIndex--)
+              {
+                if (positions_null[rowIndex][colIndex].stitch)
+                {
+                  let x = positions_null[rowIndex][colIndex].x;
+                  let y = positions_null[rowIndex][colIndex].y;
+                  let stitch = positions_null[rowIndex][colIndex].stitch;
+
+                  count += 1;
+                  p.fill(0, 200, 0);
+                  if (count >= stitchesDone && isPlaying)
+                    p.fill(180);
+                  p.noStroke();
+                  if (stitch == 'dc')
+                  { 
+                    p.strokeWeight(1);
+                    p.stroke(100);
+                  }
+                  p.ellipse(x, y, ovalSize, ovalSize);
+
+                  p.noStroke();
+                  p.fill(255);
+                  p.text(stitch, x, y);
+                }
+              }
+            }
+          }
+          
         };
 
       }, document.getElementById('p5-container'));
@@ -364,10 +442,12 @@
         <option value={patterns[design]}>{design}</option>
       {/each}
     </select>
+    <button on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
     <br>
     <br>
     <input type="text" bind:value={patternInput} on:change={() => parsePattern(patternInput)} placeholder="Enter crochet pattern">
   </div>
+  
   
   <div class="grid-container" id="p5-container"></div>
 </div>
