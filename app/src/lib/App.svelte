@@ -233,6 +233,22 @@
 
                 // Draw the Bezier curve to connect the stitches
                 p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
+
+                // arrow heads
+                let arrowSize = 5;
+                let angle = 45; 
+                let angle2 = 30;
+                
+                let arrowX1 = x1 + arrowSize * Math.cos(angle - Math.PI / 6) + spacing;
+                let arrowY1 = y1 + arrowSize * Math.sin(angle - Math.PI / 6);
+                let arrowX2 = x1 - arrowSize * Math.cos(angle2 + Math.PI / 6) + spacing;
+                let arrowY2 = y1 + arrowSize * Math.sin(angle + Math.PI / 6);
+
+                let coeff1 = 0.90;
+                let coeff2 = 0.50;
+                
+                p.line(x1 + spacing*coeff1, y1 + spacing*coeff2, arrowX1, arrowY1 + spacing*coeff2);
+                p.line(x1 + spacing*coeff1, y1 + spacing*coeff2, arrowX2, arrowY2 + spacing*coeff2);
               }
             }
             else
@@ -243,24 +259,36 @@
               }
 
               if (lastColIndex >= 0) {
-                // Get the position of the last stitch in the current row
                 let x1 = xStart + lastColIndex * (stitchSize + spacing);
                 let y1 = yStart + rowIndex * (stitchSize + spacing);
 
-                // Get the position of the stitch directly above in the same column (previous row)
                 let x2 = xStart + lastColIndex * (stitchSize + spacing);
                 let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
 
-                // Control points for Bezier curve (this makes the curve more pronounced)
                 let controlX1 = x1 - (stitchSize + spacing) / 2;
                 let controlY1 = y1;
                 let controlX2 = x2 - (stitchSize + spacing) / 2;
                 let controlY2 = y2;
 
-                // Draw the Bezier curve to connect the stitches
                 p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
+                // arrow heads
+                let arrowSize = 5;
+                let angle = -45; 
+                let angle2 = -30;
+                
+                let arrowX1 = x1 + arrowSize * Math.cos(angle2 - Math.PI / 6) - spacing;
+                let arrowY1 = y1 - arrowSize * Math.sin(angle - Math.PI / 6);
+                let arrowX2 = x1 - arrowSize * Math.cos(angle + Math.PI / 6) - spacing;
+                let arrowY2 = y1 - arrowSize * Math.sin(angle + Math.PI / 6);
+
+                let coeff1 = 0.90;
+                let coeff2 = 0.50;
+                
+                p.line(x1 - spacing*coeff1, y1 + spacing*coeff2, arrowX1, arrowY1 + spacing*coeff2);
+                p.line(x1 - spacing*coeff1, y1 + spacing*coeff2, arrowX2, arrowY2 + spacing*coeff2);
               }
             }
+            
           }
 
 
