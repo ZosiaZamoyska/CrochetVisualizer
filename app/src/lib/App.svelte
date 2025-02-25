@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+    import { draw } from 'svelte/transition';
 
   let patternInput = "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc";
   let grid = [];
@@ -12,7 +13,8 @@
     
     let rowIndex = 0;
     let base = true;
-    
+    let chainCount = 0;
+
     for (let i = 0; i < stitches.length; i++) {
         let stitch = stitches[i];
         
@@ -21,10 +23,12 @@
                 row.push(stitch);
             } else {
                 if (row.length > 0) {
-                    tempGrid.push(row);
-                    rowIndex++;
+                    //tempGrid.push(row);
+                    //rowIndex++;
+                    chainCount++;
+                    row.push(stitch);
                 }
-                row = [];
+                //row = [];
             }
         } else {
             if (base) {
@@ -36,6 +40,14 @@
                 rowIndex++;
                 row = [];
             }
+            else if (chainCount == 1)
+            {
+              tempGrid.push(row);
+              rowIndex++;
+              row.pop();
+              row = [];
+            }
+            chainCount = 0;
             row.push(stitch);
         }
     }
@@ -71,7 +83,6 @@
     let startIdx;
     let lastIdx;
     startIdx = Math.abs(minCol);
-    console.log(tempGrid);
 
     for (let i = 0; i < tempGrid.length; i++) {
         let r = tempGrid[i];
@@ -106,7 +117,6 @@
     }
 
     grid = normalizedGrid.reverse();
-    console.log(grid);
 }
 
 
@@ -128,6 +138,7 @@
           p.createCanvas(600, 400);
         };
 
+
         p.draw = () => {
           p.background(255);
           p.textSize(14);
@@ -140,166 +151,145 @@
           const ovalSize = 30;
 
           let positions = [];
+          let positions_null = [];
 
           grid.forEach((row, rowIndex) => {
+            let positions_null_row = [];
             row.forEach((stitch, colIndex) => {
               if (stitch) {
                 let xPos = xStart + colIndex * (stitchSize + spacing);
                 let yPos = yStart + rowIndex * (stitchSize + spacing);
+                if (stitch == 'dc')
+                  yPos -= spacing/2;
                 positions.push({ x: xPos, y: yPos, stitch });
+                positions_null_row.push({ x: xPos, y: yPos, stitch });
+              }
+              else
+              {
+                positions_null_row.push({ x: 0, y: 0, stitch })
               }
             });
+            positions_null.push(positions_null_row);
           });
 
-          // Draw horizontal and vertical lines between neighbors
-          p.stroke(0);
-          p.strokeWeight(2);
+          function drawArrow(p1, p2, curved, dir) {
+            p.stroke(0);
+            p.strokeWeight(2);
+            
+            let { x: x1, y: y1 } = p1;
+            let { x: x2, y: y2 } = p2;
+            let arrowSize = 5;
+            
+            if (!curved) {
+                let angle = Math.atan2(y2 - y1, x2 - x1);
+                let stopX = x2 - spacing * Math.cos(angle);
+                let stopY = y2 - spacing * Math.sin(angle);
+
+                let arrowX1 = stopX - arrowSize * Math.cos(angle - Math.PI / 6);
+                let arrowY1 = stopY - arrowSize * Math.sin(angle - Math.PI / 6);
+                let arrowX2 = stopX - arrowSize * Math.cos(angle + Math.PI / 6);
+                let arrowY2 = stopY - arrowSize * Math.sin(angle + Math.PI / 6);
+
+                p.line(x1, y1, x2, y2);
+                p.line(stopX, stopY, arrowX1, arrowY1);
+                p.line(stopX, stopY, arrowX2, arrowY2);
+            } else {
+                let controlX1 = x1 + dir * (stitchSize + spacing) / 2;
+                let controlY1 = y1;
+                let controlX2 = x2 + dir * (stitchSize + spacing) / 2;
+                let controlY2 = y2;
+
+                p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
+
+                let t = 0.74;
+                let bx = p.bezierPoint(x1, controlX1, controlX2, x2, t);
+                let by = p.bezierPoint(y1, controlY1, controlY2, y2, t);
+                let bxTangent = p.bezierTangent(x1, controlX1, controlX2, x2, t);
+                let byTangent = p.bezierTangent(y1, controlY1, controlY2, y2, t);
+                let tangentAngle = Math.atan2(byTangent, bxTangent);
+
+                let arrowX1 = bx - arrowSize * Math.cos(tangentAngle - Math.PI / 6);
+                let arrowY1 = by - arrowSize * Math.sin(tangentAngle - Math.PI / 6);
+                let arrowX2 = bx - arrowSize * Math.cos(tangentAngle + Math.PI / 6);
+                let arrowY2 = by - arrowSize * Math.sin(tangentAngle + Math.PI / 6);
+
+                p.line(bx, by, arrowX1, arrowY1);
+                p.line(bx, by, arrowX2, arrowY2);
+            }
+          }
+
+          // turns
+          for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
+            let dir = 1;
+            let lastColIndex = 0;
+            if ((grid.length -rowIndex) % 2 === 0) {
+              lastColIndex = grid[rowIndex].length - 1;
+              while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
+                lastColIndex--;
+              }
+            }
+            else
+            {
+              lastColIndex = 0;
+              dir = -1;
+              while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
+                lastColIndex++;
+              }
+
+            }
+            if (lastColIndex >= 0) {
+              let x1 = positions_null[rowIndex][lastColIndex].x;
+              let y1 = positions_null[rowIndex][lastColIndex].y;
+              let x2 = positions_null[rowIndex+1][lastColIndex].x;
+              let y2 = positions_null[rowIndex+1][lastColIndex].y;
+              drawArrow({x: x2, y: y2}, {x: x1, y: y1}, 1, dir);
+            }
+          }
 
           // Horizontal arrows (same row)
           for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
             for (let colIndex = 0; colIndex < grid[rowIndex].length - 1; colIndex++) {
               if (grid[rowIndex][colIndex] && grid[rowIndex][colIndex + 1]) {
-                let x1 = xStart + colIndex * (stitchSize + spacing);
-                let y1 = yStart + rowIndex * (stitchSize + spacing);
-                let x2 = xStart + (colIndex + 1) * (stitchSize + spacing);
-                let y2 = yStart + rowIndex * (stitchSize + spacing);
+                let x1 = positions_null[rowIndex][colIndex].x;
+                let y1 = positions_null[rowIndex][colIndex].y;
+                let x2 = positions_null[rowIndex][colIndex + 1].x;
+                let y2 = positions_null[rowIndex][colIndex + 1].y;
 
-                p.line(x1, y1, x2, y2);
-
-                let arrowSize = 5;
-                let angle = Math.atan2(y2 - y1, x2 - x1);
-
-                // arrows
                 if ((grid.length - rowIndex) % 2 === 1)
                 {
-                  let arrowX1 = x2 - arrowSize * Math.cos(angle - Math.PI / 6) - spacing;
-                  let arrowY1 = y2 - arrowSize * Math.sin(angle - Math.PI / 6);
-                  let arrowX2 = x2 - arrowSize * Math.cos(angle + Math.PI / 6) - spacing;
-                  let arrowY2 = y2 - arrowSize * Math.sin(angle + Math.PI / 6);
-
-                  p.line(x2 - spacing, y2, arrowX1, arrowY1);
-                  p.line(x2 - spacing, y2, arrowX2, arrowY2);
+                  drawArrow({x: x1, y: y1}, {x: x2, y: y2}, false, 1);
                 }
                 else
                 {
-                  let arrowX1 = x1 + arrowSize * Math.cos(angle - Math.PI / 6) + spacing;
-                  let arrowY1 = y1 + arrowSize * Math.sin(angle - Math.PI / 6);
-                  let arrowX2 = x1 + arrowSize * Math.cos(angle + Math.PI / 6) + spacing;
-                  let arrowY2 = y1 + arrowSize * Math.sin(angle + Math.PI / 6);
-
-                  p.line(arrowX1, arrowY1, x1 + spacing, y1);
-                  p.line(arrowX2, arrowY2, x1 + spacing, y1);
+                  drawArrow({x: x2, y: y2}, {x: x1, y: y1}, false, 1);
                 }
               }
             }
           }
-
 
           // Vertical lines (same column)
           for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
             for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
-              if (grid[rowIndex][colIndex] && grid[rowIndex + 1][colIndex]) {
-                let x1 = xStart + colIndex * (stitchSize + spacing);
-                let y1 = yStart + rowIndex * (stitchSize + spacing);
-                let x2 = xStart + colIndex * (stitchSize + spacing);
-                let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
-                p.line(x1, y1, x2, y2);
+              if (grid[rowIndex][colIndex] && grid[rowIndex + 1][colIndex] && grid[rowIndex][colIndex] != 'ch') {
+                let x1 = positions_null[rowIndex][colIndex].x;
+                let y1 = positions_null[rowIndex][colIndex].y;
+                let x2 = positions_null[rowIndex + 1][colIndex].x;
+                let y2 = positions_null[rowIndex + 1][colIndex].y;
+
+                drawArrow({x: x1, y: y1}, {x: x2, y: y2}, false, 1);
               }
             }
           }
-          // Draw arched lines for turns (end of one row to start of the next)
-          for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
-            // Only apply to even-indexed rows
-            if ((grid.length -rowIndex) % 2 === 0) {
-              let lastColIndex = grid[rowIndex].length - 1;
-              while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
-                lastColIndex--;
-              }
-
-              if (lastColIndex >= 0) {
-                // Get the position of the last stitch in the current row
-                let x1 = xStart + lastColIndex * (stitchSize + spacing);
-                let y1 = yStart + rowIndex * (stitchSize + spacing);
-
-                // Get the position of the stitch directly above in the same column (previous row)
-                let x2 = xStart + lastColIndex * (stitchSize + spacing);
-                let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
-
-                // Control points for Bezier curve (this makes the curve more pronounced)
-                let controlX1 = x1 + (stitchSize + spacing) / 2;
-                let controlY1 = y1;
-                let controlX2 = x2 + (stitchSize + spacing) / 2;
-                let controlY2 = y2;
-
-                // Draw the Bezier curve to connect the stitches
-                p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
-
-                // arrow heads
-                let arrowSize = 5;
-                let angle = 45; 
-                let angle2 = 30;
-                
-                let arrowX1 = x1 + arrowSize * Math.cos(angle - Math.PI / 6) + spacing;
-                let arrowY1 = y1 + arrowSize * Math.sin(angle - Math.PI / 6);
-                let arrowX2 = x1 - arrowSize * Math.cos(angle2 + Math.PI / 6) + spacing;
-                let arrowY2 = y1 + arrowSize * Math.sin(angle + Math.PI / 6);
-
-                let coeff1 = 0.90;
-                let coeff2 = 0.50;
-                
-                p.line(x1 + spacing*coeff1, y1 + spacing*coeff2, arrowX1, arrowY1 + spacing*coeff2);
-                p.line(x1 + spacing*coeff1, y1 + spacing*coeff2, arrowX2, arrowY2 + spacing*coeff2);
-              }
-            }
-            else
-            {
-              let lastColIndex = 0;
-              while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
-                lastColIndex++;
-              }
-
-              if (lastColIndex >= 0) {
-                let x1 = xStart + lastColIndex * (stitchSize + spacing);
-                let y1 = yStart + rowIndex * (stitchSize + spacing);
-
-                let x2 = xStart + lastColIndex * (stitchSize + spacing);
-                let y2 = yStart + (rowIndex + 1) * (stitchSize + spacing);
-
-                let controlX1 = x1 - (stitchSize + spacing) / 2;
-                let controlY1 = y1;
-                let controlX2 = x2 - (stitchSize + spacing) / 2;
-                let controlY2 = y2;
-
-                p.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
-                // arrow heads
-                let arrowSize = 5;
-                let angle = -45; 
-                let angle2 = -30;
-                
-                let arrowX1 = x1 + arrowSize * Math.cos(angle2 - Math.PI / 6) - spacing;
-                let arrowY1 = y1 - arrowSize * Math.sin(angle - Math.PI / 6);
-                let arrowX2 = x1 - arrowSize * Math.cos(angle + Math.PI / 6) - spacing;
-                let arrowY2 = y1 - arrowSize * Math.sin(angle + Math.PI / 6);
-
-                let coeff1 = 0.90;
-                let coeff2 = 0.50;
-                
-                p.line(x1 - spacing*coeff1, y1 + spacing*coeff2, arrowX1, arrowY1 + spacing*coeff2);
-                p.line(x1 - spacing*coeff1, y1 + spacing*coeff2, arrowX2, arrowY2 + spacing*coeff2);
-              }
-            }
-            
-          }
-
 
           // Draw stitches
           positions.forEach(({ x, y, stitch }) => {
             p.fill(0, 200, 0);
             p.noStroke();
-            p.ellipse(x, y, ovalSize, ovalSize);
+            let offset = 0;
+            p.ellipse(x, y - offset, ovalSize, ovalSize);
 
             p.fill(255);
-            p.text(stitch, x, y);
+            p.text(stitch, x, y - offset);
           });
         };
 
