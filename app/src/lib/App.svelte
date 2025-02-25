@@ -350,15 +350,19 @@
                   let stitch = positions_null[rowIndex][colIndex].stitch;
                   count += 1;
                   p.fill(0, 200, 0);
-                  if (count >= stitchesDone && isPlaying)
-                    p.fill(180);
           
                   p.noStroke();
-                  if (stitch == 'dc')
-                  { 
-                    p.strokeWeight(1);
-                    p.stroke(100);
+                  if (stitch === 'ch')
+                  {
+                    p.fill(0, 220, 0);
                   }
+                  if (stitch === 'dc')
+                  { 
+                    p.fill(0, 170, 0);
+
+                  }
+                  if (count >= stitchesDone && isPlaying)
+                    p.fill(180);
                   p.ellipse(x, y, ovalSize, ovalSize);
 
                   p.noStroke();
@@ -380,14 +384,19 @@
 
                   count += 1;
                   p.fill(0, 200, 0);
-                  if (count >= stitchesDone && isPlaying)
-                    p.fill(180);
+                  
                   p.noStroke();
+                  if (stitch === 'ch')
+                  {
+                    p.fill(0, 220, 0);
+                  }
                   if (stitch == 'dc')
                   { 
-                    p.strokeWeight(1);
-                    p.stroke(100);
+                    p.fill(0, 170, 0);
+
                   }
+                  if (count >= stitchesDone && isPlaying)
+                    p.fill(180);
                   p.ellipse(x, y, ovalSize, ovalSize);
 
                   p.noStroke();
