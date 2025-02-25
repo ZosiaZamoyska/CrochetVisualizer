@@ -2,7 +2,21 @@
   import { onMount } from 'svelte';
     import { draw } from 'svelte/transition';
 
-  let patternInput = "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc";
+    let patternInput = "";
+  
+  // Predefined crochet patterns
+  const patterns = {
+    "Basic Chain": "ch ch ch ch ch ch ch ch",
+    "Single Crochet Row": "ch ch ch ch ch ch ch ch sc sc sc sc sc sc sc",
+    "Granny Square": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc"
+  };
+
+  // Function to update patternInput and parse the pattern
+  function selectPattern(event) {
+    patternInput = event.target.value;
+    parsePattern(patternInput);
+  }
+
   let grid = [];
   let p5Instance = null;
   
@@ -175,7 +189,7 @@
           function drawArrow(p1, p2, curved, dir) {
             p.stroke(0);
             p.strokeWeight(2);
-            
+
             let { x: x1, y: y1 } = p1;
             let { x: x2, y: y2 } = p2;
             let arrowSize = 5;
@@ -329,6 +343,14 @@
 
 <div class="container">
   <div class="input-container">
+    <select on:change={selectPattern}>
+      <option value="" disabled selected>Select a design</option>
+      {#each Object.keys(patterns) as design}
+        <option value={patterns[design]}>{design}</option>
+      {/each}
+    </select>
+    <br>
+    <br>
     <input type="text" bind:value={patternInput} on:change={() => parsePattern(patternInput)} placeholder="Enter crochet pattern">
   </div>
   
