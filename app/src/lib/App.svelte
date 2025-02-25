@@ -246,7 +246,7 @@
           for (let rowIndex = 0; rowIndex < grid.length -1; rowIndex++) {
             let dir = 1;
             let lastColIndex = 0;
-            if ((grid.length -rowIndex) % 2 === 0) {
+            if (rowIndex % 2 === 0) {
               lastColIndex = grid[rowIndex].length - 1;
               while (lastColIndex >= 0 && grid[rowIndex][lastColIndex] === null) {
                 lastColIndex--;
@@ -266,7 +266,7 @@
               let y1 = positions_null[rowIndex][lastColIndex].y;
               let x2 = positions_null[rowIndex+1][lastColIndex].x;
               let y2 = positions_null[rowIndex+1][lastColIndex].y;
-              drawArrow({x: x2, y: y2}, {x: x1, y: y1}, 1, dir);
+              drawArrow({x: x1, y: y1}, {x: x2, y: y2}, 1, dir);
             }
           }
 
