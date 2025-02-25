@@ -167,31 +167,33 @@
           let positions_null = [];
           grid.forEach((row, rowIndex) => {
             let positions_null_row = [];
+
             row.forEach((stitch, colIndex) => {
               if (stitch) {
                 let xPos = xStart + colIndex * (stitchSize + spacing);
                 let yPos = yStart + rowIndex * (stitchSize + spacing);
                 if (rowIndex !== 0)
                 {              
-                  xPos = positions_null[0][colIndex].x;// + stitchSize + spacing;//xStart + colIndex * (stitchSize + spacing);
-                  yPos = positions_null[0][colIndex].y + stitchSize + spacing;//yStart + rowIndex * (stitchSize + spacing);
+                  xPos = positions_null[rowIndex - 1][colIndex].x;// + stitchSize + spacing;//xStart + colIndex * (stitchSize + spacing);
+                  yPos = positions_null[rowIndex - 1][colIndex].y + stitchSize + spacing;//yStart + rowIndex * (stitchSize + spacing);
                   if (stitch == 'dc')
                   {
                     yPos += spacing/2;
                   }
                 }
                 
-                positions.push({ x: xPos, y: yPos, stitch });
+                //positions_tmp.push({ x: xPos, y: yPos, stitch });
                 positions_null_row.push({ x: xPos, y: yPos, stitch });
               }
               else
               {
                 let xPos = xStart + colIndex * (stitchSize + spacing);
                 let yPos = yStart + rowIndex * (stitchSize + spacing);
-                positions_null_row.push({ x: xPos, y: yPos, stitch })
+                positions_null_row.push({ x: xPos, y: yPos, stitch})
               }
             });
-            positions_null.unshift(positions_null_row);
+            positions = positions_null_row.concat(positions);
+            positions_null.push(positions_null_row);
           });
 
           function drawArrow(p1, p2, curved, dir) {
@@ -241,7 +243,7 @@
           }
 
           // turns
-          for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
+          for (let rowIndex = 0; rowIndex < grid.length -1; rowIndex++) {
             let dir = 1;
             let lastColIndex = 0;
             if ((grid.length -rowIndex) % 2 === 0) {
@@ -304,7 +306,8 @@
           }
 
           // Draw stitches
-          positions_null.forEach(({ x, y, stitch }) => {
+          positions.forEach(({ x, y, stitch }) => {
+            //console.log(stitch);
             if (stitch)
             {
               p.fill(0, 200, 0);
