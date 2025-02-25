@@ -39,12 +39,9 @@
                 row.push(stitch);
             } else {
                 if (row.length > 0) {
-                    //tempGrid.push(row);
-                    //rowIndex++;
                     chainCount++;
                     row.push(stitch);
                 }
-                //row = [];
             }
         } else {
             if (base) {
@@ -132,7 +129,7 @@
         normalizedGrid.push(paddedRow);
     }
 
-    grid = normalizedGrid.reverse();
+    grid = normalizedGrid;//.reverse();
 }
 
 
@@ -168,24 +165,33 @@
 
           let positions = [];
           let positions_null = [];
-
           grid.forEach((row, rowIndex) => {
             let positions_null_row = [];
             row.forEach((stitch, colIndex) => {
               if (stitch) {
                 let xPos = xStart + colIndex * (stitchSize + spacing);
                 let yPos = yStart + rowIndex * (stitchSize + spacing);
-                if (stitch == 'dc')
-                  yPos -= spacing/2;
+                if (rowIndex !== 0)
+                {              
+                  xPos = positions_null[0][colIndex].x;// + stitchSize + spacing;//xStart + colIndex * (stitchSize + spacing);
+                  yPos = positions_null[0][colIndex].y + stitchSize + spacing;//yStart + rowIndex * (stitchSize + spacing);
+                  if (stitch == 'dc')
+                  {
+                    yPos += spacing/2;
+                  }
+                }
+                
                 positions.push({ x: xPos, y: yPos, stitch });
                 positions_null_row.push({ x: xPos, y: yPos, stitch });
               }
               else
               {
-                positions_null_row.push({ x: 0, y: 0, stitch })
+                let xPos = xStart + colIndex * (stitchSize + spacing);
+                let yPos = yStart + rowIndex * (stitchSize + spacing);
+                positions_null_row.push({ x: xPos, y: yPos, stitch })
               }
             });
-            positions_null.push(positions_null_row);
+            positions_null.unshift(positions_null_row);
           });
 
           function drawArrow(p1, p2, curved, dir) {
@@ -264,14 +270,14 @@
 
           // Horizontal arrows (same row)
           for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
-            for (let colIndex = 0; colIndex < grid[rowIndex].length - 1; colIndex++) {
-              if (grid[rowIndex][colIndex] && grid[rowIndex][colIndex + 1]) {
+            for (let colIndex = 1; colIndex < grid[rowIndex].length; colIndex++) {
+              if (grid[rowIndex][colIndex] && grid[rowIndex][colIndex - 1]) {
                 let x1 = positions_null[rowIndex][colIndex].x;
                 let y1 = positions_null[rowIndex][colIndex].y;
-                let x2 = positions_null[rowIndex][colIndex + 1].x;
-                let y2 = positions_null[rowIndex][colIndex + 1].y;
+                let x2 = positions_null[rowIndex][colIndex - 1].x;
+                let y2 = positions_null[rowIndex][colIndex - 1].y;
 
-                if ((grid.length - rowIndex) % 2 === 1)
+                if (rowIndex % 2 === 1)
                 {
                   drawArrow({x: x1, y: y1}, {x: x2, y: y2}, false, 1);
                 }
@@ -284,13 +290,13 @@
           }
 
           // Vertical lines (same column)
-          for (let rowIndex = 0; rowIndex < grid.length - 1; rowIndex++) {
+          for (let rowIndex = 1; rowIndex < grid.length; rowIndex++) {
             for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
-              if (grid[rowIndex][colIndex] && grid[rowIndex + 1][colIndex] && grid[rowIndex][colIndex] != 'ch') {
+              if (grid[rowIndex][colIndex] && grid[rowIndex - 1][colIndex] && grid[rowIndex][colIndex] != 'ch') {
                 let x1 = positions_null[rowIndex][colIndex].x;
                 let y1 = positions_null[rowIndex][colIndex].y;
-                let x2 = positions_null[rowIndex + 1][colIndex].x;
-                let y2 = positions_null[rowIndex + 1][colIndex].y;
+                let x2 = positions_null[rowIndex - 1][colIndex].x;
+                let y2 = positions_null[rowIndex - 1][colIndex].y;
 
                 drawArrow({x: x1, y: y1}, {x: x2, y: y2}, false, 1);
               }
@@ -298,14 +304,17 @@
           }
 
           // Draw stitches
-          positions.forEach(({ x, y, stitch }) => {
-            p.fill(0, 200, 0);
-            p.noStroke();
-            let offset = 0;
-            p.ellipse(x, y - offset, ovalSize, ovalSize);
+          positions_null.forEach(({ x, y, stitch }) => {
+            if (stitch)
+            {
+              p.fill(0, 200, 0);
+              p.noStroke();
+              let offset = 0;
+              p.ellipse(x, y - offset, ovalSize, ovalSize);
 
-            p.fill(255);
-            p.text(stitch, x, y - offset);
+              p.fill(255);
+              p.text(stitch, x, y - offset);
+            }
           });
         };
 
