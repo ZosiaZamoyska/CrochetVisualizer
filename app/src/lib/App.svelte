@@ -454,7 +454,7 @@
     <button on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
     <br>
     <br>
-    <input type="text" bind:value={patternInput} on:change={() => parsePattern(patternInput)} placeholder="Enter crochet pattern">
+    <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
   </div>
   
   
