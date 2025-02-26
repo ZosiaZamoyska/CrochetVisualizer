@@ -13,6 +13,10 @@ Usually, a pattern cannot be rendered just from stitches, unless it follows a ve
 * that means, we do not visualize increase or decrease into specific stitch
 * if a certain row has more stitches than previous, we just visualize it as an extension of current row (can think of it as increase into last stitch)
 * visualization is done in a form that crochet follows, that is a zigzag pattern from right to left, left to right, and so on.
+* multiple (>1) chains in a row that appear not in base will be treated as skip chains, and continue current row
+
+# Optional
+Can connect a server on port 8765 that will send stitches data (for example from physical sensing). Will be reflected in visualization.
 
 # Run
 `
