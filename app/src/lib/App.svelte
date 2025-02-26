@@ -1,8 +1,10 @@
 <script>
   import { onMount } from 'svelte';
-    import { draw } from 'svelte/transition';
+  import { draw } from 'svelte/transition';
 
-    let patternInput = "";
+  let patternInput = "";
+  let websocketPort = 8765;
+  let arduinoData = "";
   
   // Predefined crochet patterns
   const patterns = {
@@ -166,6 +168,26 @@
   let p5;
 
   onMount(async () => {
+    const socket = new WebSocket(`ws://localhost:${websocketPort}`);
+  
+    socket.onmessage = (event) => {
+      arduinoData = event.data;
+    };
+
+    socket.onopen = () => {
+      console.log('WebSocket connected');
+    };
+
+    socket.onerror = (error) => {
+      console.log('WebSocket error: ', error);
+    };
+
+    if (arduinoData)
+    {
+      patternInput += arduinoData + " ";
+      arduinoData = "";
+    }
+
     parsePattern(patternInput);
 
     if (typeof window !== 'undefined') {
