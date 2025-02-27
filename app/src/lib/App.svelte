@@ -172,6 +172,9 @@
   
     socket.onmessage = (event) => {
       arduinoData = event.data;
+      //console.log(arduinoData);
+      patternInput += arduinoData + " ";
+      parsePattern(patternInput.trim());
     };
 
     socket.onopen = () => {
@@ -182,11 +185,7 @@
       console.log('WebSocket error: ', error);
     };
 
-    if (arduinoData)
-    {
-      patternInput += arduinoData + " ";
-      arduinoData = "";
-    }
+    
 
     parsePattern(patternInput);
 
