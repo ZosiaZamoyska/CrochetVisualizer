@@ -7,6 +7,9 @@
   let patternInput = "";
   let websocketPort = 8765;
   let arduinoData = "";
+  let stitchesType = ["ch", "sc", "dc"];
+  let arduinoStatus = ["waiting", "receiving"];
+  let status = "waiting";
   
   // Predefined crochet patterns
   const patterns = {
@@ -63,13 +66,33 @@
     createCanvasInstance();
   }
 
+  function undoLastStitch() {
+    const stitches = patternInput.trim().split(" ");
+    if (stitches.length > 0) {
+      stitches.pop();
+      patternInput = stitches.join(" ");
+      parsePattern(patternInput.trim());
+    }
+  }
+
   onMount(async () => {
     const socket = new WebSocket(`ws://localhost:${websocketPort}`);
   
     socket.onmessage = (event) => {
-      arduinoData = event.data;
-      patternInput += arduinoData + " ";
-      parsePattern(patternInput.trim());
+
+      let receivedData = event.data;
+
+      if (stitchesType.includes(receivedData))
+      {
+        patternInput += arduinoData + " ";
+        parsePattern(patternInput.trim());
+      }
+      if (arduinoStatus.includes(receivedData))
+      {
+        console.log("hello");
+        status = receivedData;
+      }
+
     };
 
     socket.onopen = () => {
@@ -138,10 +161,35 @@
     width: 100%;
     height: 500px;
   }
+  .dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin: 10px;
+    display: inline-block;
+  }
+
+  .receiving {
+    background-color: green;
+  }
+
+  .waiting {
+    background-color: rgb(255, 145, 0);
+  }
+  .status-container {
+    display: flex;
+    align-items: center;
+  }
 </style>
 
 <div class="container">
   <div class="input-container">
+    <div class="status-container">
+
+      <h1>Status:</h1>
+      <div class="dot {status}"></div>
+      <h1> {status}</h1>
+    </div>
     <select on:change={selectPattern}>
       <option value="" disabled selected>Select a design</option>
       {#each Object.keys(patterns) as design}
@@ -149,6 +197,7 @@
       {/each}
     </select>
     <button on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
+    <button on:click={undoLastStitch}>Undo</button>
     <br>
     <br>
     <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
