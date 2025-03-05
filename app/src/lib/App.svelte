@@ -6,12 +6,6 @@
   import './App.css';
   import { jsPDF } from 'jspdf';
 
-  // Add Google Fonts
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap';
-  document.head.appendChild(link);
-
   let patternInput = "";
   let websocketPort = 8765;
   let arduinoData = "";
