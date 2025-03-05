@@ -1,6 +1,6 @@
 import { draw } from 'svelte/transition';
 
-export function createP5Instance(p5, grid, stitchesDone, isPlaying) {
+export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15) {
     let positions = [];
     let positions_null = [];
 
@@ -16,26 +16,25 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying) {
       const xStart = 50;
       const yStart = 50;
       const stitchSize = 30;
-      const spacing = 15;
       const ovalSize = 30;
   
       grid.forEach((row, rowIndex) => {
         let positions_null_row = [];
         row.forEach((stitch, colIndex) => {
           if (stitch) {
-            let xPos = xStart + colIndex * (stitchSize + spacing);
-            let yPos = yStart + rowIndex * (stitchSize + spacing);
+            let xPos = xStart + colIndex * (stitchSize + horizontalSpacing);
+            let yPos = yStart + rowIndex * (stitchSize + verticalSpacing);
             if (rowIndex !== 0) {
               xPos = positions_null[rowIndex - 1][colIndex].x;
-              yPos = positions_null[rowIndex - 1][colIndex].y + stitchSize + spacing;
+              yPos = positions_null[rowIndex - 1][colIndex].y + stitchSize + verticalSpacing;
               if (stitch === 'dc') {
-                yPos += spacing / 2;
+                yPos += verticalSpacing / 2;
               }
             }
             positions_null_row.push({ x: xPos, y: yPos, stitch });
           } else {
-            let xPos = xStart + colIndex * (stitchSize + spacing);
-            let yPos = yStart + rowIndex * (stitchSize + spacing);
+            let xPos = xStart + colIndex * (stitchSize + horizontalSpacing);
+            let yPos = yStart + rowIndex * (stitchSize + verticalSpacing);
             positions_null_row.push({ x: xPos, y: yPos, stitch });
           }
         });
@@ -53,8 +52,8 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying) {
   
         if (!curved) {
           let angle = Math.atan2(y2 - y1, x2 - x1);
-          let stopX = x2 - spacing * Math.cos(angle);
-          let stopY = y2 - spacing * Math.sin(angle);
+          let stopX = x2 - horizontalSpacing * Math.cos(angle);
+          let stopY = y2 - verticalSpacing * Math.sin(angle);
   
           let arrowX1 = stopX - arrowSize * Math.cos(angle - Math.PI / 6);
           let arrowY1 = stopY - arrowSize * Math.sin(angle - Math.PI / 6);
@@ -65,9 +64,9 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying) {
           p5.line(stopX, stopY, arrowX1, arrowY1);
           p5.line(stopX, stopY, arrowX2, arrowY2);
         } else {
-          let controlX1 = x1 + dir * (stitchSize + spacing) / 2;
+          let controlX1 = x1 + dir * (stitchSize + horizontalSpacing) / 2;
           let controlY1 = y1;
-          let controlX2 = x2 + dir * (stitchSize + spacing) / 2;
+          let controlX2 = x2 + dir * (stitchSize + horizontalSpacing) / 2;
           let controlY2 = y2;
   
           p5.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
