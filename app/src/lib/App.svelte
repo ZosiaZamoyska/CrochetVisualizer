@@ -8,7 +8,7 @@
   let websocketPort = 8765;
   let arduinoData = "";
   let stitchesType = ["ch", "sc", "dc"];
-  let arduinoStatus = ["waiting", "receiving"];
+  let arduinoStatus = ["waiting", "connected","receiving"];
   let status = "waiting";
   
   // Predefined crochet patterns
@@ -32,6 +32,9 @@
   let isPlaying = false;
   let stitchesDone = patternInput.split(" ").length;
   let interval;
+  
+  // Ensure canvas redraws every time patternInput changes
+  $: patternInput, redrawCanvas();
 
   function playPattern() {
     if (isPlaying) {
@@ -48,6 +51,7 @@
         stitchesDone = partialPattern.split(" ").length;
         parsePattern(patternInput);
         currentStep += 3;
+        redrawCanvas();
       } else {
         stopPlayback();
       }
@@ -58,8 +62,6 @@
     clearInterval(interval);
     isPlaying = false;
   }
-  // Ensure canvas redraws every time patternInput changes
-  $: patternInput, redrawCanvas();
 
   // Function to trigger the canvas redraw
   function redrawCanvas() {
@@ -79,7 +81,6 @@
     const socket = new WebSocket(`ws://localhost:${websocketPort}`);
   
     socket.onmessage = (event) => {
-
       let receivedData = event.data;
 
       if (stitchesType.includes(receivedData))
@@ -89,20 +90,27 @@
       }
       if (arduinoStatus.includes(receivedData))
       {
-        console.log("hello");
         status = receivedData;
       }
-
     };
 
     socket.onopen = () => {
       console.log('WebSocket connected');
+      status = "connected";
     };
 
     socket.onerror = (error) => {
       console.log('WebSocket error: ', error);
+      status = "waiting";
     };
 
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+      status = "waiting";
+    };
+
+    // Set initial status to waiting
+    status = "waiting";
     parsePattern(patternInput);
 
     if (typeof window !== 'undefined') {
@@ -114,7 +122,7 @@
       }
 
       //createCanvasInstance();
-      p5Instance = new p5((p) => createP5Instance(p, grid, patternInput, currentStep, isPlaying), document.getElementById('p5Canvas'));
+      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying), document.getElementById('p5Canvas'));
     }
   });
 
@@ -128,7 +136,7 @@
       }
 
       // Create a new p5 instance
-      p5Instance = new p5((p) => createP5Instance(p, grid, patternInput, currentStep, isPlaying), document.getElementById('p5Canvas'));
+      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying), document.getElementById('p5Canvas'));
     }
   }
 </script>
@@ -136,7 +144,90 @@
 
 
 <style lang="css">
-  @import './App.css';
+  .container {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    padding: 20px;
+    gap: 40px;
+  }
+
+  .input-container {
+    flex: 0 0 300px;
+    padding: 20px;
+    background-color: #f5f5f5;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .grid-container {
+    flex: 1;
+    padding: 20px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .status-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .status-container h1 {
+    font-size: 1.2rem;
+    margin: 0;
+  }
+
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin: 0;
+  }
+
+  .receiving {
+    background-color: #4CAF50;
+  }
+
+  .waiting {
+    background-color: #FFA726;
+  }
+
+  .connected {
+    background-color: #2196F3;
+  }
+
+  select, input, button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+
+  button {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  button:hover {
+    background-color: #1976D2;
+  }
+
+  button + button {
+    margin-left: 10px;
+  }
+
+  #p5Canvas {
+    width: 100%;
+    height: 100%;
+  }
 </style>
 
 <div class="container">
@@ -160,6 +251,6 @@
     <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
   </div>
   
-  
+
   <div class="grid-container" id="p5Canvas"></div>
 </div>

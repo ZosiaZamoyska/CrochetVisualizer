@@ -37,6 +37,9 @@
   }
 
   .waiting {
+    background-color: rgb(217, 13, 13);
+  }
+  .connected {
     background-color: rgb(255, 145, 0);
   }
   .status-container {

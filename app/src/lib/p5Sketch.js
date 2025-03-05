@@ -3,7 +3,7 @@ import { draw } from 'svelte/transition';
 export function createP5Instance(p5, grid, stitchesDone, isPlaying) {
     let positions = [];
     let positions_null = [];
-  
+
     p5.setup = () => {
       p5.createCanvas(600, 400);
     };
