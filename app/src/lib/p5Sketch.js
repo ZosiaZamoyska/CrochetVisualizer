@@ -1,6 +1,6 @@
 import { draw } from 'svelte/transition';
 
-export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15) {
+export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00") {
     let positions = [];
     let positions_null = [];
 
@@ -52,15 +52,14 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpac
   
         if (!curved) {
           let angle = Math.atan2(y2 - y1, x2 - x1);
-          let stopX = x2 - horizontalSpacing * Math.cos(angle);
-          let stopY = y2 - verticalSpacing * Math.sin(angle);
-  
+          let stopX = x2 - (stitchSize/2) * Math.cos(angle);
+          let stopY = y2 - (stitchSize/2) * Math.sin(angle);
           let arrowX1 = stopX - arrowSize * Math.cos(angle - Math.PI / 6);
           let arrowY1 = stopY - arrowSize * Math.sin(angle - Math.PI / 6);
           let arrowX2 = stopX - arrowSize * Math.cos(angle + Math.PI / 6);
           let arrowY2 = stopY - arrowSize * Math.sin(angle + Math.PI / 6);
   
-          p5.line(x1, y1, x2, y2);
+          p5.line(x1, y1, stopX, stopY);
           p5.line(stopX, stopY, arrowX1, arrowY1);
           p5.line(stopX, stopY, arrowX2, arrowY2);
         } else {
@@ -169,12 +168,15 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpac
               p5.noStroke();
               if (stitch === 'ch')
               {
-                p5.fill(0, 220, 0);
+                p5.fill(chColor);
+              }
+              if (stitch === 'sc')
+              {
+                p5.fill(scColor);
               }
               if (stitch === 'dc')
               { 
-                p5.fill(0, 170, 0);
-
+                p5.fill(dcColor);
               }
               if (count >= stitchesDone && isPlaying)
                 p5.fill(180);
@@ -199,16 +201,20 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpac
 
               count += 1;
               p5.fill(0, 200, 0);
-              
+
+
               p5.noStroke();
               if (stitch === 'ch')
               {
-                p5.fill(0, 220, 0);
+                p5.fill(chColor);
               }
-              if (stitch == 'dc')
+              if (stitch === 'sc')
+              {
+                p5.fill(scColor);
+              }
+              if (stitch === 'dc')
               { 
-                p5.fill(0, 170, 0);
-
+                p5.fill(dcColor);
               }
               if (count >= stitchesDone && isPlaying)
                 p5.fill(180);

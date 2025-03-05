@@ -14,6 +14,10 @@
   let status = "waiting";
   let verticalSpacing = 15;
   let horizontalSpacing = 15;
+  let showSettings = false;
+  let chColor = "#00DC00";
+  let scColor = "#00C800";
+  let dcColor = "#00AA00";
   
   // Create a reactive variable for the formatted pattern
   $: formattedPattern = formatPattern();
@@ -41,7 +45,7 @@
   let interval;
   
   // Ensure canvas redraws every time patternInput or spacing changes
-  $: patternInput, verticalSpacing, horizontalSpacing, redrawCanvas();
+  $: patternInput, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, redrawCanvas();
   $: patternInput, formattedPattern = formatPattern();
 
   // Update pattern text when patternInput changes
@@ -251,7 +255,7 @@
       }
 
       //createCanvasInstance();
-      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing), document.getElementById('p5Canvas'));
+      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor), document.getElementById('p5Canvas'));
     }
   });
 
@@ -264,12 +268,20 @@
         p5Instance.remove(); // Remove existing instance
       }
 
-      // Create a new p5 instance with spacing parameters
-      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing), document.getElementById('p5Canvas'));
+      // Create a new p5 instance with spacing parameters and colors
+      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor), document.getElementById('p5Canvas'));
     }
   }
 </script>
 
+<header class="header">
+  <h1 class="header-title">Crochet Pattern Visualizer</h1>
+
+  <nav class="nav-menu">
+    <a href="#" class="nav-link">Design</a>
+    <a href="#" class="nav-link">My Patterns</a>
+  </nav>
+</header>
 
 <div class="container">
   <div class="input-container">
@@ -291,29 +303,61 @@
     <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
     
     <div class="spacing-controls">
-      <h2>Visualization Settings</h2>
-      <div class="slider-group">
-        <label for="vertical-spacing">Vertical Spacing: {verticalSpacing}px</label>
-        <input 
-          type="range" 
-          id="vertical-spacing" 
-          min="5" 
-          max="30" 
-          bind:value={verticalSpacing}
-          class="slider"
-        >
+      <div class="settings-header" on:click={() => showSettings = !showSettings}>
+        <span class="toggle-icon">{showSettings ? '▼' : '▶'}</span>
+        <h2>Visualization Settings</h2>
       </div>
-      <div class="slider-group">
-        <label for="horizontal-spacing">Horizontal Spacing: {horizontalSpacing}px</label>
-        <input 
-          type="range" 
-          id="horizontal-spacing" 
-          min="5" 
-          max="30" 
-          bind:value={horizontalSpacing}
-          class="slider"
-        >
-      </div>
+      {#if showSettings}
+        <div class="slider-group">
+          <label for="vertical-spacing">Vertical Spacing: {verticalSpacing}px</label>
+          <input 
+            type="range" 
+            id="vertical-spacing" 
+            min="5" 
+            max="30" 
+            bind:value={verticalSpacing}
+            class="slider"
+          >
+        </div>
+        <div class="slider-group">
+          <label for="horizontal-spacing">Horizontal Spacing: {horizontalSpacing}px</label>
+          <input 
+            type="range" 
+            id="horizontal-spacing" 
+            min="5" 
+            max="30" 
+            bind:value={horizontalSpacing}
+            class="slider"
+          >
+        </div>
+        <div class="color-group">
+          <label for="ch-color">Chain Stitch Color:</label>
+          <input 
+            type="color" 
+            id="ch-color" 
+            bind:value={chColor}
+            class="color-picker"
+          >
+        </div>
+        <div class="color-group">
+          <label for="sc-color">Single Crochet Color:</label>
+          <input 
+            type="color" 
+            id="sc-color" 
+            bind:value={scColor}
+            class="color-picker"
+          >
+        </div>
+        <div class="color-group">
+          <label for="dc-color">Double Crochet Color:</label>
+          <input 
+            type="color" 
+            id="dc-color" 
+            bind:value={dcColor}
+            class="color-picker"
+          >
+        </div>
+      {/if}
     </div>
     
     <div class="pattern-output">
