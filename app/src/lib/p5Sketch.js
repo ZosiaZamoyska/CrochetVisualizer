@@ -1,6 +1,6 @@
 import { draw } from 'svelte/transition';
 
-export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00") {
+export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = []) {
     let positions = [];
     let positions_null = [];
 
@@ -166,17 +166,20 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpac
               p5.fill(0, 200, 0);
       
               p5.noStroke();
-              if (stitch === 'ch')
-              {
+              if (stitch === 'ch') {
                 p5.fill(chColor);
-              }
-              if (stitch === 'sc')
-              {
+              } else if (stitch === 'sc') {
                 p5.fill(scColor);
-              }
-              if (stitch === 'dc')
-              { 
+              } else if (stitch === 'dc') { 
                 p5.fill(dcColor);
+              } else {
+                // Check for custom stitch color
+                const customStitch = customStitches.find(s => s.name === stitch);
+                if (customStitch) {
+                  p5.fill(customStitch.color);
+                } else {
+                  p5.fill(180); // Default gray for unknown stitch types
+                }
               }
               if (count >= stitchesDone && isPlaying)
                 p5.fill(180);
@@ -204,17 +207,20 @@ export function createP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpac
 
 
               p5.noStroke();
-              if (stitch === 'ch')
-              {
+              if (stitch === 'ch') {
                 p5.fill(chColor);
-              }
-              if (stitch === 'sc')
-              {
+              } else if (stitch === 'sc') {
                 p5.fill(scColor);
-              }
-              if (stitch === 'dc')
-              { 
+              } else if (stitch === 'dc') { 
                 p5.fill(dcColor);
+              } else {
+                // Check for custom stitch color
+                const customStitch = customStitches.find(s => s.name === stitch);
+                if (customStitch) {
+                  p5.fill(customStitch.color);
+                } else {
+                  p5.fill(180); // Default gray for unknown stitch types
+                }
               }
               if (count >= stitchesDone && isPlaying)
                 p5.fill(180);

@@ -6,6 +6,12 @@
   import './App.css';
   import { jsPDF } from 'jspdf';
 
+  // Add Google Fonts
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap';
+  document.head.appendChild(link);
+
   let patternInput = "";
   let websocketPort = 8765;
   let arduinoData = "";
@@ -18,6 +24,23 @@
   let chColor = "#00DC00";
   let scColor = "#00C800";
   let dcColor = "#00AA00";
+  let customStitches = [];
+  let showNewStitchDialog = false;
+  let newStitchName = "";
+  let newStitchColor = "#808080";
+  
+  // Function to extract unique stitch types from pattern
+  function extractStitchTypes(pattern) {
+    const stitches = pattern.trim().split(" ").filter(s => s);
+    const uniqueStitches = new Set([...stitchesType, ...stitches]);
+    return Array.from(uniqueStitches);
+  }
+
+  // Update stitch types when pattern changes
+  $: {
+    patternInput;
+    stitchesType = extractStitchTypes(patternInput);
+  }
   
   // Create a reactive variable for the formatted pattern
   $: formattedPattern = formatPattern();
@@ -45,7 +68,7 @@
   let interval;
   
   // Ensure canvas redraws every time patternInput or spacing changes
-  $: patternInput, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, redrawCanvas();
+  $: patternInput, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, redrawCanvas();
   $: patternInput, formattedPattern = formatPattern();
 
   // Update pattern text when patternInput changes
@@ -210,6 +233,21 @@
     }).join("\n");
   }
 
+  function addNewStitch() {
+    if (newStitchName.trim()) {
+      customStitches = [...customStitches, { name: newStitchName.trim(), color: newStitchColor }];
+      stitchesType = [...stitchesType, newStitchName.trim()];
+      newStitchName = "";
+      newStitchColor = "#808080";
+      showNewStitchDialog = false;
+    }
+  }
+
+  function removeCustomStitch(stitchName) {
+    customStitches = customStitches.filter(s => s.name !== stitchName);
+    stitchesType = stitchesType.filter(s => s !== stitchName);
+  }
+
   onMount(async () => {
     const socket = new WebSocket(`ws://localhost:${websocketPort}`);
   
@@ -255,7 +293,7 @@
       }
 
       //createCanvasInstance();
-      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor), document.getElementById('p5Canvas'));
+      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
     }
   });
 
@@ -269,7 +307,7 @@
       }
 
       // Create a new p5 instance with spacing parameters and colors
-      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor), document.getElementById('p5Canvas'));
+      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
     }
   }
 </script>
@@ -286,7 +324,7 @@
 <div class="container">
   <div class="input-container">
     <div class="status-container">
-      <h1>Status:</h1>
+      <h1>Sensing Status:</h1>
       <div class="dot {status}"></div>
       <h1> {status}</h1>
     </div>
@@ -304,7 +342,7 @@
     
     <div class="spacing-controls">
       <div class="settings-header" on:click={() => showSettings = !showSettings}>
-        <span class="toggle-icon">{showSettings ? '▼' : '▶'}</span>
+        <span class="toggle-icon">{showSettings ? '🔽' : '▶️'}</span>
         <h2>Visualization Settings</h2>
       </div>
       {#if showSettings}
@@ -330,38 +368,82 @@
             class="slider"
           >
         </div>
-        <div class="color-group">
-          <label for="ch-color">Chain Stitch Color:</label>
-          <input 
-            type="color" 
-            id="ch-color" 
-            bind:value={chColor}
-            class="color-picker"
-          >
+        <div class="color-pickers-container">
+          <div class="color-group">
+            <label for="ch-color">ch</label>
+            <input 
+              type="color" 
+              id="ch-color" 
+              bind:value={chColor}
+              class="color-picker"
+            >
+          </div>
+          <div class="color-group">
+            <label for="sc-color">sc</label>
+            <input 
+              type="color" 
+              id="sc-color" 
+              bind:value={scColor}
+              class="color-picker"
+            >
+          </div>
+          <div class="color-group">
+            <label for="dc-color">dc</label>
+            <input 
+              type="color" 
+              id="dc-color" 
+              bind:value={dcColor}
+              class="color-picker"
+            >
+          </div>
+          {#each customStitches as stitch}
+            <div class="color-group">
+              <label>{stitch.name}</label>
+              <div class="color-picker-container">
+                <input 
+                  type="color" 
+                  bind:value={stitch.color}
+                  class="color-picker"
+                >
+                <button class="remove-stitch" on:click={() => removeCustomStitch(stitch.name)}>×</button>
+              </div>
+            </div>
+          {/each}
+          <div class="color-group">
+            <label>Add</label>
+            <button class="add-stitch" on:click={() => showNewStitchDialog = true}>+</button>
+          </div>
         </div>
-        <div class="color-group">
-          <label for="sc-color">Single Crochet Color:</label>
-          <input 
-            type="color" 
-            id="sc-color" 
-            bind:value={scColor}
-            class="color-picker"
-          >
-        </div>
-        <div class="color-group">
-          <label for="dc-color">Double Crochet Color:</label>
-          <input 
-            type="color" 
-            id="dc-color" 
-            bind:value={dcColor}
-            class="color-picker"
-          >
-        </div>
+
+        {#if showNewStitchDialog}
+          <div class="new-stitch-dialog">
+            <h3>Add New Stitch</h3>
+            <div class="new-stitch-input-group">
+              <input 
+                type="text" 
+                bind:value={newStitchName} 
+                placeholder="Enter stitch name"
+                class="new-stitch-input"
+              >
+              <div class="color-picker-container">
+                <input 
+                  type="color" 
+                  bind:value={newStitchColor}
+                  class="color-picker"
+                >
+              </div>
+            </div>
+            <div class="dialog-buttons">
+              <button on:click={addNewStitch}>Add</button>
+              <button on:click={() => showNewStitchDialog = false}>Cancel</button>
+            </div>
+          </div>
+        {/if}
       {/if}
     </div>
     
     <div class="pattern-output">
-      <h2>Written Pattern</h2>
+      <h2>💾 Written Pattern</h2>
       <div class="pattern-text">
         {formattedPattern}
       </div>
