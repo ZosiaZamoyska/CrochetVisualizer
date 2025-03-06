@@ -409,14 +409,6 @@
     <a 
       href="#" 
       class="nav-link" 
-      class:active={activeTab === 'design'}
-      on:click={() => activeTab = 'design'}
-    >
-      Design
-    </a>
-    <a 
-      href="#" 
-      class="nav-link" 
       class:active={activeTab === 'patterns'}
       on:click={() => activeTab = 'patterns'}
     >

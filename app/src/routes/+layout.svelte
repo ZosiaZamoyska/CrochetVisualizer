@@ -15,13 +15,6 @@
       Make
     </a>
     <a 
-      href="/design" 
-      class="nav-link" 
-      class:active={$page.url.pathname === '/design'}
-    >
-      Design
-    </a>
-    <a 
       href="/patterns" 
       class="nav-link" 
       class:active={$page.url.pathname === '/patterns'}
