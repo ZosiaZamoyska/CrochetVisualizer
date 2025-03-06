@@ -23,7 +23,7 @@
   let newStitchName = "";
   let newStitchColor = "#808080";
   let savedPatterns = [];
-  let activeTab = 'design';
+  let activeTab = 'make';
   let showSavePatternDialog = false;
   let newPatternName = "";
   let newPatternNotes = "";
@@ -314,7 +314,7 @@
     stitchesType = pattern.stitchesType;
     verticalSpacing = pattern.spacing.vertical;
     horizontalSpacing = pattern.spacing.horizontal;
-    activeTab = 'design';
+    activeTab = 'make';
     parsePattern(patternInput.trim());
     redrawCanvas();
   }
@@ -401,6 +401,14 @@
     <a 
       href="#" 
       class="nav-link" 
+      class:active={activeTab === 'make'}
+      on:click={() => activeTab = 'make'}
+    >
+      Make
+    </a>
+    <a 
+      href="#" 
+      class="nav-link" 
       class:active={activeTab === 'design'}
       on:click={() => activeTab = 'design'}
     >
@@ -418,7 +426,7 @@
 </header>
 
 <div class="container">
-  {#if activeTab === 'design'}
+  {#if activeTab === 'make'}
     <div class="input-container">
       <div class="status-container">
         <h2>💡 Sensing Status:</h2>
