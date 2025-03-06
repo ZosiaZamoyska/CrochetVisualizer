@@ -37,10 +37,11 @@ body {
 
 .container {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
   width: 100%;
   padding: 20px;
   gap: 40px;
+  align-items: flex-start;
 }
 
 .input-container {
@@ -49,6 +50,9 @@ body {
   background-color: var(--bg-secondary);
   border-radius: 10px;
   box-shadow: 0 2px 4px var(--shadow-color);
+  height: fit-content;
+  min-height: 100%;
+  overflow-y: auto;
 }
 
 .grid-container {
@@ -57,6 +61,7 @@ body {
   background-color: var(--bg-secondary);
   border-radius: 10px;
   box-shadow: 0 2px 4px var(--shadow-color);
+  min-height: 100%;
 }
 
 .status-container {
