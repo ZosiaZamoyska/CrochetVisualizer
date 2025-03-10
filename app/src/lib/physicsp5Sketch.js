@@ -30,15 +30,36 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
             let midY = (fromNode.y + toNode.y) / 2;
             p5.fill(0);
             p5.noStroke();
-            p5.textSize(12);
-            p5.text(link.distance, midX, midY);
+            //p5.textSize(12);
+            //p5.text(link.distance, midX, midY);
         });
 
         // Draw nodes
         nodes.forEach(node => {
-            p5.fill(255, 0, 0); // Node color
+            // Set the fill color based on the stitch type
+            switch (node.stitch) {
+                case 'ch':
+                    p5.fill(chColor);
+                    break;
+                case 'sc':
+                    p5.fill(scColor);
+                    break;
+                case 'dc':
+                    p5.fill(dcColor);
+                    break;
+                default:
+                    // Check for custom stitch color
+                    const customStitch = customStitches.find(s => s.name === node.stitch);
+                    if (customStitch) {
+                        p5.fill(customStitch.color);
+                    } else {
+                        p5.fill(180); // Default gray for unknown stitch types
+                    }
+                    break;
+            }
+
             p5.stroke(0);
-            p5.strokeWeight(2);
+            p5.strokeWeight(1);
             p5.ellipse(node.x, node.y, 20, 20); // Draw node as a circle
             p5.fill(0);
             p5.noStroke();
