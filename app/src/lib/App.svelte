@@ -2,7 +2,9 @@
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
   import { parsePattern, grid } from './parser.js';
-  import { createP5Instance } from './p5Sketch.js';
+  import { createBasicP5Instance } from './basicP5Sketch.js';
+  import { createPhysicsP5Instance } from './p5sketch.js';
+  import { createExpertP5Instance } from './expertP5Sketch.js';
   import './App.css';
   import { jsPDF } from 'jspdf';
 
@@ -27,6 +29,7 @@
   let showSavePatternDialog = false;
   let newPatternName = "";
   let newPatternNotes = "";
+  let viewMode = 'basic';
   
   // Function to extract unique stitch types from pattern
   function extractStitchTypes(pattern) {
@@ -43,6 +46,7 @@
   
   // Create a reactive variable for the formatted pattern
   $: formattedPattern = formatPattern();
+  
   
   // Predefined crochet patterns
   const patterns = {
@@ -324,6 +328,15 @@
     localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
   }
 
+  // Function to toggle between basic and expert views
+  function toggleViewMode() {
+    viewMode = viewMode === 'basic' ? 'expert' : 'basic';
+  }
+
+  // Reactive statement to update the canvas when viewMode changes
+  $: viewMode, createCanvasInstance(); // This will call createCanvasInstance whenever viewMode changes
+
+
   onMount(async () => {
     // Load saved patterns
     const saved = localStorage.getItem('savedPatterns');
@@ -381,206 +394,167 @@
 
   async function createCanvasInstance() {
     if (typeof window !== 'undefined') {
-      const module = await import('p5');
-      const p5 = module.default;
+        const module = await import('p5');
+        const p5 = module.default;
 
-      if (p5Instance) {
-        p5Instance.remove(); // Remove existing instance
-      }
+        if (p5Instance) {
+            p5Instance.remove(); // Remove existing instance
+        }
 
-      // Create a new p5 instance with spacing parameters and colors
-      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        // Create a new p5 instance with the appropriate drawing function based on view mode
+        if (viewMode === 'expert') {
+            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        } else if (viewMode === 'physics') {
+            p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        } else {
+            // Basic view
+            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        }
     }
   }
 </script>
 
-<header class="header">
-  <h1 class="header-title">Crochet Pattern Visualizer</h1>
-
-  <nav class="nav-menu">
-    <a 
-      href="#" 
-      class="nav-link" 
-      class:active={activeTab === 'make'}
-      on:click={() => activeTab = 'make'}
-    >
-      Make
-    </a>
-    <a 
-      href="#" 
-      class="nav-link" 
-      class:active={activeTab === 'patterns'}
-      on:click={() => activeTab = 'patterns'}
-    >
-      My Patterns
-    </a>
-  </nav>
-</header>
-
 <div class="container">
-  {#if activeTab === 'make'}
-    <div class="input-container">
-      <div class="status-container">
-        <h2>💡 Sensing Status:</h2>
-        <div class="dot {status}"></div>
-        <h2> {status}</h2>
+  <div class="input-container">
+    <div class="status-container">
+      <h2>💡 Sensing Status:</h2>
+      <div class="dot {status}"></div>
+      <h2> {status}</h2>
+    </div>
+    <select on:change={selectPattern}>
+      <option value="" disabled selected>Select a design</option>
+      {#each Object.keys(patterns) as design}
+        <option value={patterns[design]}>{design}</option>
+      {/each}
+    </select>
+    <div class="button-group">
+      <button class="primary" on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
+      <button class="primary" on:click={undoLastStitch}>Undo</button>
+    </div>
+    <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
+    
+    <div class="spacing-controls">
+      <div class="settings-header" on:click={() => showSettings = !showSettings}>
+        <span class="toggle-icon">{showSettings ? '🔽' : '▶️'}</span>
+        <h2>Visualization Settings</h2>
       </div>
-      <select on:change={selectPattern}>
-        <option value="" disabled selected>Select a design</option>
-        {#each Object.keys(patterns) as design}
-          <option value={patterns[design]}>{design}</option>
-        {/each}
-      </select>
-      <div class="button-group">
-        <button class="primary" on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
-        <button class="primary" on:click={undoLastStitch}>Undo</button>
-      </div>
-      <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
-      
-      <div class="spacing-controls">
-        <div class="settings-header" on:click={() => showSettings = !showSettings}>
-          <span class="toggle-icon">{showSettings ? '🔽' : '▶️'}</span>
-          <h2>Visualization Settings</h2>
+      {#if showSettings}
+        <div class="slider-group">
+          <label for="view-mode">Select View Mode:</label>
+          <select id="view-mode" bind:value={viewMode}>
+            <option value="basic">Basic View</option>
+            <option value="physics">Physics View</option>
+            <option value="expert">Expert View</option>
+          </select>
         </div>
-        {#if showSettings}
-          <div class="slider-group">
-            <label for="vertical-spacing">Vertical Spacing: {verticalSpacing}px</label>
+        <div class="slider-group">
+          <label for="vertical-spacing">Vertical Spacing: {verticalSpacing}px</label>
+          <input 
+            type="range" 
+            id="vertical-spacing" 
+            min="5" 
+            max="30" 
+            bind:value={verticalSpacing}
+            class="slider"
+          >
+        </div>
+        <div class="slider-group">
+          <label for="horizontal-spacing">Horizontal Spacing: {horizontalSpacing}px</label>
+          <input 
+            type="range" 
+            id="horizontal-spacing" 
+            min="5" 
+            max="30" 
+            bind:value={horizontalSpacing}
+            class="slider"
+          >
+        </div>
+        <div class="color-pickers-container">
+          <div class="color-group">
+            <label for="ch-color">ch</label>
             <input 
-              type="range" 
-              id="vertical-spacing" 
-              min="5" 
-              max="30" 
-              bind:value={verticalSpacing}
-              class="slider"
+              type="color" 
+              id="ch-color" 
+              bind:value={chColor}
+              class="color-picker"
             >
           </div>
-          <div class="slider-group">
-            <label for="horizontal-spacing">Horizontal Spacing: {horizontalSpacing}px</label>
+          <div class="color-group">
+            <label for="sc-color">sc</label>
             <input 
-              type="range" 
-              id="horizontal-spacing" 
-              min="5" 
-              max="30" 
-              bind:value={horizontalSpacing}
-              class="slider"
+              type="color" 
+              id="sc-color" 
+              bind:value={scColor}
+              class="color-picker"
             >
           </div>
-          <div class="color-pickers-container">
-            <div class="color-group">
-              <label for="ch-color">ch</label>
-              <input 
-                type="color" 
-                id="ch-color" 
-                bind:value={chColor}
-                class="color-picker"
-              >
-            </div>
-            <div class="color-group">
-              <label for="sc-color">sc</label>
-              <input 
-                type="color" 
-                id="sc-color" 
-                bind:value={scColor}
-                class="color-picker"
-              >
-            </div>
-            <div class="color-group">
-              <label for="dc-color">dc</label>
-              <input 
-                type="color" 
-                id="dc-color" 
-                bind:value={dcColor}
-                class="color-picker"
-              >
-            </div>
-            {#each customStitches as stitch}
-              <div class="color-group">
-                <label>{stitch.name}</label>
-                <div class="color-picker-container">
-                  <input 
-                    type="color" 
-                    bind:value={stitch.color}
-                    class="color-picker"
-                  >
-                  <button class="remove-stitch" on:click={() => removeCustomStitch(stitch.name)}>×</button>
-                </div>
-              </div>
-            {/each}
-            <div class="color-group">
-              <label>Add</label>
-              <button class="add-stitch" on:click={() => showNewStitchDialog = true}>+</button>
-            </div>
+          <div class="color-group">
+            <label for="dc-color">dc</label>
+            <input 
+              type="color" 
+              id="dc-color" 
+              bind:value={dcColor}
+              class="color-picker"
+            >
           </div>
-
-          {#if showNewStitchDialog}
-            <div class="new-stitch-dialog">
-              <h3>Add New Stitch</h3>
-              <div class="new-stitch-input-group">
+          {#each customStitches as stitch}
+            <div class="color-group">
+              <label>{stitch.name}</label>
+              <div class="color-picker-container">
                 <input 
-                  type="text" 
-                  bind:value={newStitchName} 
-                  placeholder="Enter stitch name"
-                  class="new-stitch-input"
+                  type="color" 
+                  bind:value={stitch.color}
+                  class="color-picker"
                 >
-                <div class="color-picker-container">
-                  <input 
-                    type="color" 
-                    bind:value={newStitchColor}
-                    class="color-picker"
-                  >
-                </div>
-              </div>
-              <div class="dialog-buttons">
-                <button on:click={addNewStitch}>Add</button>
-                <button on:click={() => showNewStitchDialog = false}>Cancel</button>
+                <button class="remove-stitch" on:click={() => removeCustomStitch(stitch.name)}>×</button>
               </div>
             </div>
-          {/if}
-        {/if}
-      </div>
-      
-      <div class="pattern-output">
-        <h2>💾 Written Pattern</h2>
-        <div class="pattern-text">
-          {formattedPattern}
-        </div>
-        <div class="button-group vertical">
-          <button class="primary" on:click={savePattern}>Save pattern</button>
-          <div class="button-group horizontal">
-            <button class="secondary" on:click={exportToPDF}>Export PDF</button>
-            <button class="secondary" on:click={saveChart}>Export chart</button>
+          {/each}
+          <div class="color-group">
+            <label>Add</label>
+            <button class="add-stitch" on:click={() => showNewStitchDialog = true}>+</button>
           </div>
         </div>
-      </div>
+
+        {#if showNewStitchDialog}
+          <div class="new-stitch-dialog">
+            <h3>Add New Stitch</h3>
+            <div class="new-stitch-input-group">
+              <input 
+                type="text" 
+                bind:value={newStitchName} 
+                placeholder="Enter stitch name"
+                class="new-stitch-input"
+              >
+            </div>
+            <div class="color-picker-container">
+              <input 
+                type="color" 
+                bind:value={newStitchColor}
+                class="color-picker"
+              >
+            </div>
+          </div>
+        {/if}
+      {/if}
     </div>
     
-    <div class="grid-container" id="p5Canvas"></div>
-  {:else}
-    <div class="patterns-container">
-      <h2>My Saved Patterns</h2>
-      <div class="patterns-grid">
-        {#each savedPatterns as pattern}
-          <div class="pattern-card">
-            <div class="pattern-preview">
-              {#if pattern.preview}
-                <img src={pattern.preview} alt="Pattern preview" />
-              {:else}
-                <div class="no-preview">No preview available</div>
-              {/if}
-            </div>
-            <div class="pattern-info">
-              <h3>{pattern.name}</h3>
-              <p>Created: {new Date(pattern.timestamp).toLocaleDateString()}</p>
-              <div class="pattern-actions">
-                <button class="primary" on:click={() => loadPattern(pattern)}>Load</button>
-                <button class="destructive" on:click={() => deletePattern(pattern.id)}>Delete</button>
-              </div>
-            </div>
-          </div>
-        {/each}
+    <div class="pattern-output">
+      <h2>💾 Written Pattern</h2>
+      <div class="pattern-text">
+        {formattedPattern}
+      </div>
+      <div class="button-group vertical">
+        <button class="primary" on:click={savePattern}>Save pattern</button>
+        <div class="button-group horizontal">
+          <button class="secondary" on:click={exportToPDF}>Export PDF</button>
+          <button class="secondary" on:click={saveChart}>Export chart</button>
+        </div>
       </div>
     </div>
-  {/if}
+  </div>
+  
+  <div class="grid-container" id="p5Canvas"></div>
 </div>
 
 {#if showSavePatternDialog}
