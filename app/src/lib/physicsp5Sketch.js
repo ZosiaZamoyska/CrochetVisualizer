@@ -7,7 +7,8 @@ let simulation;
 
 export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = []) {
     p5.setup = () => {
-        p5.createCanvas(600, 400);
+        p5.createCanvas(800, 600);
+        p5.noLoop();
         p5.background(255);
         createGraph(grid); // Pass the grid to create the graph
     };
@@ -15,6 +16,8 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
     p5.draw = () => {
         p5.clear();
         p5.background(255);
+        const ovalSize = 30;
+        const stitchSize = 30;
 
         // Draw edges
         
@@ -60,7 +63,7 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
 
             p5.stroke(0);
             p5.strokeWeight(1);
-            p5.ellipse(node.x, node.y, 20, 20); // Draw node as a circle
+            p5.ellipse(node.x, node.y, ovalSize, ovalSize); // Draw node as a circle
             p5.fill(0);
             p5.noStroke();
             p5.textAlign(p5.CENTER, p5.CENTER);
@@ -111,10 +114,16 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
     
         // Initialize D3 force simulation
         simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(d => d.distance))
-            .force("charge", d3.forceManyBody().strength(-50))
-            .force("center", d3.forceCenter(p5.width / 2, p5.height / 2))
-            .on("tick", () => p5.redraw());
+            .force("link", d3.forceLink(links)
+                .id(d => d.id)
+                .distance(d => d.distance)) // keep your dynamic distances
+            .force("charge", d3.forceManyBody().strength(-100)) // repulsion
+            .force("center", d3.forceCenter(p5.width / 2, p5.height / 2)) // centering force
+            .force("collision", d3.forceCollide()
+                .radius(30 / 2) // prevent overlap based on oval size
+                .strength(0.7)) // you can adjust strength (0 to 1) as needed
+            .on("tick", () => p5.redraw()); // trigger p5.js redraw on every tick
+
       }
 
     // Function to update nodes and links based on the new grid

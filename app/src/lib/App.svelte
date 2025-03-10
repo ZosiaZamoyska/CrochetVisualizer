@@ -534,6 +534,10 @@
                 class="color-picker"
               >
             </div>
+            <div class="dialog-buttons">
+              <button on:click={addNewStitch}>Add</button>
+              <button on:click={() => showNewStitchDialog = false}>Cancel</button>
+            </div>
           </div>
         {/if}
       {/if}
