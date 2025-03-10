@@ -5,11 +5,13 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
     let positions_null = [];
 
     p5.setup = () => {
-      p5.createCanvas(600, 400);
+      p5.createCanvas(800, 600);
+      p5.background(255);
+
     };
     
     p5.draw = () => {
-      p5.background(255);
+      p5.clear();
       p5.textSize(14);
       p5.textAlign(p5.CENTER, p5.CENTER);
   
@@ -17,24 +19,22 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
       const yStart = 50;
       const stitchSize = 30;
       const ovalSize = 30;
-  
+      const totalHeight = (grid.length-1) * (stitchSize + verticalSpacing); // Total grid height
+
       grid.forEach((row, rowIndex) => {
         let positions_null_row = [];
         row.forEach((stitch, colIndex) => {
           if (stitch) {
             let xPos = xStart + colIndex * (stitchSize + horizontalSpacing);
-            let yPos = yStart + rowIndex * (stitchSize + verticalSpacing);
+            let yPos = yStart + totalHeight - rowIndex * (stitchSize + verticalSpacing);
             if (rowIndex !== 0) {
               xPos = positions_null[rowIndex - 1][colIndex].x;
-              yPos = positions_null[rowIndex - 1][colIndex].y + stitchSize + verticalSpacing;
-              if (stitch === 'dc') {
-                yPos += verticalSpacing / 2;
-              }
+              yPos = positions_null[rowIndex - 1][colIndex].y  - (stitchSize + verticalSpacing);
             }
             positions_null_row.push({ x: xPos, y: yPos, stitch });
           } else {
             let xPos = xStart + colIndex * (stitchSize + horizontalSpacing);
-            let yPos = yStart + rowIndex * (stitchSize + verticalSpacing);
+            let yPos = yStart + totalHeight - rowIndex * (stitchSize + verticalSpacing);
             positions_null_row.push({ x: xPos, y: yPos, stitch });
           }
         });
@@ -86,6 +86,42 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
           p5.line(bx, by, arrowX2, arrowY2);
         }
       }
+      function createNode(p5, position, ovalSize, chColor, scColor, dcColor, customStitches, stitchesDone, isPlaying) {
+        const x = position.x;
+        const y = position.y;
+        const stitch = position.stitch;
+
+        p5.fill(0, 200, 0);
+        p5.noStroke();
+
+        // Set fill color based on stitch type
+        if (stitch === 'ch') {
+            p5.fill(chColor);
+        } else if (stitch === 'sc') {
+            p5.fill(scColor);
+        } else if (stitch === 'dc') {
+            p5.fill(dcColor);
+        } else {
+            // Check for custom stitch color
+            const customStitch = customStitches.find(s => s.name === stitch);
+            if (customStitch) {
+                p5.fill(customStitch.color);
+            } else {
+                p5.fill(180); // Default gray for unknown stitch types
+            }
+        }
+
+        // Adjust fill color if the stitch count exceeds the threshold
+        if (count >= stitchesDone && isPlaying) {
+            p5.fill(180);
+        }
+
+        // Draw the node
+        p5.ellipse(x, y, ovalSize, ovalSize);
+        p5.noStroke();
+        p5.fill(255);
+        p5.text(stitch, x, y);
+    }
   
       for (let rowIndex = 0; rowIndex < grid.length -1; rowIndex++) {
         let dir = 1;
@@ -157,78 +193,21 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         {
           for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++)
           {
-            if (positions_null[rowIndex][colIndex].stitch)
+            if (positions_null[rowIndex][colIndex].stitch != null)
             {
-              let x = positions_null[rowIndex][colIndex].x;
-              let y = positions_null[rowIndex][colIndex].y;
-              let stitch = positions_null[rowIndex][colIndex].stitch;
-              count += 1;
-              p5.fill(0, 200, 0);
-      
-              p5.noStroke();
-              if (stitch === 'ch') {
-                p5.fill(chColor);
-              } else if (stitch === 'sc') {
-                p5.fill(scColor);
-              } else if (stitch === 'dc') { 
-                p5.fill(dcColor);
-              } else {
-                // Check for custom stitch color
-                const customStitch = customStitches.find(s => s.name === stitch);
-                if (customStitch) {
-                  p5.fill(customStitch.color);
-                } else {
-                  p5.fill(180); // Default gray for unknown stitch types
-                }
-              }
-              if (count >= stitchesDone && isPlaying)
-                p5.fill(180);
-              p5.ellipse(x, y, ovalSize, ovalSize);
-
-              p5.noStroke();
-              p5.fill(255);
-              p5.text(stitch, x, y);
+              count = count + 1;
+              createNode(p5, positions_null[rowIndex][colIndex], ovalSize, chColor, scColor, dcColor, customStitches, stitchesDone, isPlaying);
             }
-
           }
         }
         else
         {
           for (let colIndex = grid[rowIndex].length-1; colIndex >=0; colIndex--)
           {
-            if (positions_null[rowIndex][colIndex].stitch)
+            if (positions_null[rowIndex][colIndex].stitch != null)
             {
-              let x = positions_null[rowIndex][colIndex].x;
-              let y = positions_null[rowIndex][colIndex].y;
-              let stitch = positions_null[rowIndex][colIndex].stitch;
-
-              count += 1;
-              p5.fill(0, 200, 0);
-
-
-              p5.noStroke();
-              if (stitch === 'ch') {
-                p5.fill(chColor);
-              } else if (stitch === 'sc') {
-                p5.fill(scColor);
-              } else if (stitch === 'dc') { 
-                p5.fill(dcColor);
-              } else {
-                // Check for custom stitch color
-                const customStitch = customStitches.find(s => s.name === stitch);
-                if (customStitch) {
-                  p5.fill(customStitch.color);
-                } else {
-                  p5.fill(180); // Default gray for unknown stitch types
-                }
-              }
-              if (count >= stitchesDone && isPlaying)
-                p5.fill(180);
-              p5.ellipse(x, y, ovalSize, ovalSize);
-
-              p5.noStroke();
-              p5.fill(255);
-              p5.text(stitch, x, y);
+              count = count + 1;
+              createNode(p5, positions_null[rowIndex][colIndex], ovalSize, chColor, scColor, dcColor, customStitches, stitchesDone, isPlaying);
             }
           }
         }

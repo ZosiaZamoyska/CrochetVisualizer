@@ -29,7 +29,7 @@
   let showSavePatternDialog = false;
   let newPatternName = "";
   let newPatternNotes = "";
-  let viewMode = 'basic';
+  let viewMode = 'expert';
   
   // Function to extract unique stitch types from pattern
   function extractStitchTypes(pattern) {
