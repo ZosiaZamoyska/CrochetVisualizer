@@ -5,8 +5,10 @@
   import { createBasicP5Instance } from './basicP5Sketch.js';
   import { createPhysicsP5Instance } from './physicsp5Sketch.js';
   import { createExpertP5Instance } from './expertP5Sketch.js';
+  import { enableSelection } from './interactiveEditing.js';
   import './App.css';
   import { jsPDF } from 'jspdf';
+  import ContextMenu from './ContextMenu.svelte';
 
   let patternInput = "";
   let formattedPattern = "";
@@ -31,7 +33,22 @@
   let newPatternName = "";
   let newPatternNotes = "";
   let viewMode = 'basic';
+  let shapes = [];
   
+  let isSelecting = false;
+  let selectionStart = { x: 0, y: 0 };
+  let selectionEnd = { x: 0, y: 0 };
+  let selectedNodes = [];
+  
+  let contextMenuVisible = false;
+  let contextMenuProps = {
+      x: 0,
+      y: 0,
+      onDelete: () => {},
+      onDuplicate: () => {},
+      onChangeStitchType: () => {}
+  };
+
   // Function to extract unique stitch types from pattern
   function extractStitchTypes(pattern) {
     const stitches = pattern.trim().split(" ").filter(s => s);
@@ -327,14 +344,21 @@
     localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
   }
 
-  // Function to toggle between basic and expert views
-  function toggleViewMode() {
-    viewMode = viewMode === 'basic' ? 'expert' : 'basic';
-  }
-
   // Reactive statement to update the canvas when viewMode changes
   $: viewMode, createCanvasInstance(); // This will call createCanvasInstance whenever viewMode changes
 
+  function showContextMenu(x, y, callbacks) {
+      contextMenuProps = {
+          x,
+          y,
+          ...callbacks
+      };
+      contextMenuVisible = true;
+  }
+
+  function hideContextMenu() {
+      contextMenuVisible = false;
+  }
 
   onMount(async () => {
     // Load saved patterns
@@ -395,6 +419,40 @@
             // Basic view
             p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
         }    }
+
+    // Add click handler to hide context menu when clicking outside
+    document.addEventListener('click', (event) => {
+        if (contextMenuVisible) {
+            const contextMenuElement = document.querySelector('.context-menu');
+            if (contextMenuElement && !contextMenuElement.contains(event.target)) {
+                hideContextMenu();
+            }
+        }
+    });
+
+    const canvasElement = document.getElementById('p5Canvas');
+    canvasElement.addEventListener('contextmenu', (event) => {
+        event.preventDefault(); // Prevent the default context menu
+        const selectedNodes = []; // Get your selected nodes logic here
+        showContextMenu(event.clientX, event.clientY, {
+            onDelete: () => {
+                // Implement delete logic
+                console.log('Delete action');
+                hideContextMenu();
+            },
+            onDuplicate: () => {
+                // Implement duplicate logic
+                console.log('Duplicate action');
+                hideContextMenu();
+            },
+            onChangeStitchType: () => {
+                // Implement change stitch type logic
+                console.log('Change stitch type action');
+                hideContextMenu();
+            }
+        });
+        event.stopPropagation(); // Prevent the click from being handled by the document click handler
+    });
   });
 
   async function createCanvasInstance() {
@@ -417,6 +475,7 @@
         }
     }
   }
+  
 </script>
 
 <div class="container">
@@ -447,7 +506,7 @@
         <div class="slider-group">
           <label for="view-mode">Select View Mode:</label>
           <select id="view-mode" bind:value={viewMode}>
-            <option value="basic">Basic View</option>
+            <option value="basic">Basic View (Editing mode)</option>
             <option value="physics">Physics View</option>
             <option value="expert">Expert View</option>
           </select>
@@ -563,7 +622,7 @@
     </div>
   </div>
   
-  <div class="grid-container" id="p5Canvas"></div>
+  <div id="p5Canvas" class="canvas-container"></div>
 </div>
 
 {#if showSavePatternDialog}
@@ -591,3 +650,21 @@
     </div>
   </div>
 {/if}
+
+{#if contextMenuVisible}
+    <ContextMenu 
+        x={contextMenuProps.x}
+        y={contextMenuProps.y}
+        on:delete={contextMenuProps.onDelete}
+        on:duplicate={contextMenuProps.onDuplicate}
+        on:changeStitchType={contextMenuProps.onChangeStitchType}
+    />
+{/if}
+
+<style>
+  .canvas-container {
+    width: 800px;
+    height: 600px;
+    margin: 20px auto;
+  }
+</style>

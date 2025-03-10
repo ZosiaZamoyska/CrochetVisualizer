@@ -1,13 +1,30 @@
 import { draw } from 'svelte/transition';
+import { enableSelection } from './interactiveEditing.js';
+import  ContextMenu from './ContextMenu.svelte'; // Import the context menu component
 
-export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = []) {
+export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = [], onShowContextMenu) {
     let positions = [];
     let positions_null = [];
+    let selectionHandler;
+    let selectedNodes = [];
 
     p5.setup = () => {
-      p5.createCanvas(800, 600);
-      p5.background(255);
-
+        p5.createCanvas(800, 600);
+        p5.background(255);
+        selectionHandler = enableSelection(p5, positions_null);
+        
+        // Set up the callback for when selection is complete
+        if (typeof onShowContextMenu === 'function') {
+            selectionHandler.setSelectionCompleteCallback((nodes, x, y) => {
+                if (nodes.length > 0) {
+                    onShowContextMenu(x, y, {
+                        onDelete: () => deleteSelectedNodes(nodes),
+                        onDuplicate: () => duplicateSelectedNodes(nodes),
+                        onChangeStitchType: () => changeStitchType(nodes)
+                    });
+                }
+            });
+        }
     };
     
     p5.draw = () => {
@@ -186,31 +203,125 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
       }
 
       // Draw stitches
-      let count = 0;
-      for (let rowIndex = 0; rowIndex < grid.length; rowIndex++)
-      {
-        if (rowIndex%2 == 0)
-        {
-          for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++)
-          {
-            if (positions_null[rowIndex][colIndex].stitch != null)
-            {
-              count = count + 1;
-              createNode(p5, positions_null[rowIndex][colIndex], ovalSize, chColor, scColor, dcColor, customStitches, stitchesDone, isPlaying);
+        let count = 0;
+        for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+            if (rowIndex % 2 == 0) {
+                for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+                    if (positions_null[rowIndex][colIndex].stitch) {
+                        count += 1;
+                        drawNode(positions_null[rowIndex][colIndex], count);
+                    }
+                }
+            } else {
+                for (let colIndex = grid[rowIndex].length - 1; colIndex >= 0; colIndex--) {
+                    if (positions_null[rowIndex][colIndex].stitch) {
+                        count += 1;
+                        drawNode(positions_null[rowIndex][colIndex], count);
+                    }
+                }
             }
-          }
         }
-        else
-        {
-          for (let colIndex = grid[rowIndex].length-1; colIndex >=0; colIndex--)
-          {
-            if (positions_null[rowIndex][colIndex].stitch != null)
-            {
-              count = count + 1;
-              createNode(p5, positions_null[rowIndex][colIndex], ovalSize, chColor, scColor, dcColor, customStitches, stitchesDone, isPlaying);
-            }
-          }
+        if (selectionHandler) {
+            selectionHandler.drawSelectionArea();
         }
-      }
     };
-  }
+    p5.mousePressed = () => {
+        // Only handle selection through the selectionHandler
+        if (selectionHandler && !selectionHandler.isCurrentlySelecting()) {
+            selectedNodes = [];
+        }
+    };
+
+    function drawNode(position, count) {
+        const selectedNodes = selectionHandler ? selectionHandler.getSelectedNodes() : [];
+        const isSelected = selectedNodes.includes(position);
+        p5.noStroke();
+        // Set fill color based on selection and stitch type
+        if (isSelected) {
+            p5.fill(30, 30, 30, 200); // Highlight selected nodes
+        } else {
+            if (position.stitch === 'ch') {
+                p5.fill(chColor);
+            } else if (position.stitch === 'sc') {
+                p5.fill(scColor);
+            } else if (position.stitch === 'dc') {
+                p5.fill(dcColor);
+            } else {
+                const customStitch = customStitches.find(s => s.name === position.stitch);
+                if (customStitch) {
+                    p5.fill(customStitch.color);
+                } else {
+                    p5.fill(180);
+                }
+            }
+        }
+
+        if (count >= stitchesDone && isPlaying) {
+            p5.fill(180);
+        }
+
+        // Draw the node
+        p5.ellipse(position.x, position.y, 30, 30);
+        p5.noStroke();
+        p5.fill(255);
+        p5.text(position.stitch, position.x, position.y);
+    }
+    function deleteSelectedNodes(nodes) {
+        nodes.forEach(node => {
+            // Find the node in the grid and remove it
+            for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+                for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+                    if (positions_null[rowIndex][colIndex] === node) {
+                        grid[rowIndex][colIndex] = null;
+                    }
+                }
+            }
+        });
+        // Clear selection after deletion
+        selectionHandler.getSelectedNodes().length = 0;
+    }
+
+    function duplicateSelectedNodes(nodes) {
+        const newNodes = nodes.map(node => ({
+            ...node,
+            x: node.x + horizontalSpacing,
+            y: node.y
+        }));
+        
+        // Add new nodes to the grid
+        newNodes.forEach(newNode => {
+            let inserted = false;
+            for (let rowIndex = 0; rowIndex < grid.length && !inserted; rowIndex++) {
+                for (let colIndex = 0; colIndex < grid[rowIndex].length && !inserted; colIndex++) {
+                    if (!grid[rowIndex][colIndex]) {
+                        grid[rowIndex][colIndex] = newNode.stitch;
+                        inserted = true;
+                    }
+                }
+            }
+        });
+    }
+
+    function changeStitchType(nodes) {
+        const stitchTypes = ['ch', 'sc', 'dc', ...customStitches.map(s => s.name)];
+        const currentType = nodes[0].stitch;
+        const currentIndex = stitchTypes.indexOf(currentType);
+        const nextType = stitchTypes[(currentIndex + 1) % stitchTypes.length];
+
+        nodes.forEach(node => {
+            // Find and update the node in the grid
+            for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+                for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+                    if (positions_null[rowIndex][colIndex] === node) {
+                        grid[rowIndex][colIndex] = nextType;
+                    }
+                }
+            }
+        });
+    }
+
+    function redrawCanvas() {
+        p5.clear();
+        p5.draw(); // Call the draw function to refresh the canvas
+    }
+}

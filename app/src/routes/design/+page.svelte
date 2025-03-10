@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import '$lib/App.css';
   import ShapeLibrary from '$lib/components/ShapeLibrary.svelte';
-  import Canvas from '$lib/components/Canvas.svelte';
   import { PATTERNS, SHAPE_TYPES, getRandomPosition, alignShapes } from '$lib/shapes';
 
   let shapes = [];
