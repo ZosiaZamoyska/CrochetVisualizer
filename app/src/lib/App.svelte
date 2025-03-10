@@ -3,7 +3,7 @@
   import { writable } from 'svelte/store';
   import { parsePattern, grid } from './parser.js';
   import { createBasicP5Instance } from './basicP5Sketch.js';
-  import { createPhysicsP5Instance } from './p5sketch.js';
+  import { createPhysicsP5Instance } from './physicsp5Sketch.js';
   import { createExpertP5Instance } from './expertP5Sketch.js';
   import './App.css';
   import { jsPDF } from 'jspdf';
