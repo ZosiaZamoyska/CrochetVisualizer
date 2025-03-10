@@ -9,6 +9,7 @@
   import { jsPDF } from 'jspdf';
 
   let patternInput = "";
+  let formattedPattern = "";
   let websocketPort = 8765;
   let arduinoData = "";
   let stitchesType = ["ch", "sc", "dc"];
@@ -29,7 +30,7 @@
   let showSavePatternDialog = false;
   let newPatternName = "";
   let newPatternNotes = "";
-  let viewMode = 'expert';
+  let viewMode = 'basic';
   
   // Function to extract unique stitch types from pattern
   function extractStitchTypes(pattern) {
@@ -41,11 +42,9 @@
   // Update stitch types when pattern changes
   $: {
     patternInput;
-    stitchesType = extractStitchTypes(patternInput);
+    parsePattern(patternInput.trim());
+    formattedPattern = formatPattern(); // Run this AFTER parsePattern updates grid
   }
-  
-  // Create a reactive variable for the formatted pattern
-  $: formattedPattern = formatPattern();
   
   
   // Predefined crochet patterns
@@ -71,7 +70,7 @@
   let interval;
   
   // Ensure canvas redraws every time patternInput or spacing changes
-  $: patternInput, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, redrawCanvas();
+  $: patternInput, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, redrawCanvas(), formattedPattern = formatPattern();
   $: patternInput, formattedPattern = formatPattern();
 
   // Update pattern text when patternInput changes
@@ -388,8 +387,14 @@
       }
 
       //createCanvasInstance();
-      p5Instance = new p5((p) => createP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
-    }
+      if (viewMode === 'expert') {
+            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        } else if (viewMode === 'physics') {
+            p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        } else {
+            // Basic view
+            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+        }    }
   });
 
   async function createCanvasInstance() {
