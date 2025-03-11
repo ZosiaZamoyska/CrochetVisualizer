@@ -1,21 +1,24 @@
 <script>
+    import { createEventDispatcher } from 'svelte';
+    const dispatch = createEventDispatcher();
+
     export let x = 0;
     export let y = 0;
-    export let onDelete;
-    export let onDuplicate;
-    export let onChangeStitchType;
 
-    const handleDelete = () => {
-        onDelete();
-    };
+    function handleDelete() {
+        console.log("ContextMenu: handleDelete called");
+        dispatch('delete');
+    }
 
-    const handleDuplicate = () => {
-        onDuplicate();
-    };
+    function handleDuplicate() {
+        console.log("ContextMenu: handleDuplicate called");
+        dispatch('duplicate');
+    }
 
-    const handleChangeStitchType = () => {
-        onChangeStitchType();
-    };
+    function handleChangeStitchType() {
+        console.log("ContextMenu: handleChangeStitchType called");
+        dispatch('changeStitchType');
+    }
 
     function handleMenuClick(event) {
         // Prevent the click from bubbling up to the document

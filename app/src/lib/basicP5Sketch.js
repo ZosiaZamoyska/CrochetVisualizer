@@ -13,18 +13,16 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.background(255);
         selectionHandler = enableSelection(p5, positions_null);
         
-        // Set up the callback for when selection is complete
-        if (typeof onShowContextMenu === 'function') {
-            selectionHandler.setSelectionCompleteCallback((nodes, x, y) => {
-                if (nodes.length > 0) {
-                    onShowContextMenu(x, y, {
-                        onDelete: () => deleteSelectedNodes(nodes),
-                        onDuplicate: () => duplicateSelectedNodes(nodes),
-                        onChangeStitchType: () => changeStitchType(nodes)
-                    });
-                }
-            });
-        }
+        // Add right-click handler for context menu
+        p5.canvas.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            const nodes = selectionHandler.getSelectedNodes();
+            console.log("Right click - selected nodes:", nodes);
+            if (nodes.length > 0) {
+                onShowContextMenu(event.clientX, event.clientY);
+            }
+            event.stopPropagation();
+        });
     };
     
     p5.draw = () => {
@@ -267,18 +265,30 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.text(position.stitch, position.x, position.y);
     }
     function deleteSelectedNodes(nodes) {
+        console.log("deleteSelectedNodes called with nodes:", nodes);
+        if (!nodes || nodes.length === 0) {
+            console.log("No nodes to delete");
+            return;
+        }
+
         nodes.forEach(node => {
-            // Find the node in the grid and remove it
             for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
                 for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
                     if (positions_null[rowIndex][colIndex] === node) {
+                        console.log("Deleting node at", rowIndex, colIndex);
                         grid[rowIndex][colIndex] = null;
                     }
                 }
             }
         });
+        
         // Clear selection after deletion
-        selectionHandler.getSelectedNodes().length = 0;
+        if (selectionHandler) {
+            selectionHandler.getSelectedNodes().length = 0;
+        }
+        
+        // Force a redraw
+        p5.redraw();
     }
 
     function duplicateSelectedNodes(nodes) {
@@ -324,4 +334,16 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.clear();
         p5.draw(); // Call the draw function to refresh the canvas
     }
+
+    // Make sure these are properly exposed
+    p5.getSelectedNodes = () => {
+        const nodes = selectionHandler ? selectionHandler.getSelectedNodes() : [];
+        console.log("getSelectedNodes called, returning:", nodes);
+        return nodes;
+    };
+    p5.deleteSelectedNodes = deleteSelectedNodes;
+    p5.duplicateSelectedNodes = duplicateSelectedNodes;
+    p5.changeStitchType = changeStitchType;
+
+    return p5;
 }

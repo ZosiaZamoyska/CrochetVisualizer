@@ -347,17 +347,16 @@
   // Reactive statement to update the canvas when viewMode changes
   $: viewMode, createCanvasInstance(); // This will call createCanvasInstance whenever viewMode changes
 
-  function showContextMenu(x, y, callbacks) {
-      contextMenuProps = {
-          x,
-          y,
-          ...callbacks
-      };
-      contextMenuVisible = true;
+  function showContextMenu(x, y) {
+    contextMenuProps = {
+        x,
+        y
+    };
+    contextMenuVisible = true;
   }
 
   function hideContextMenu() {
-      contextMenuVisible = false;
+    contextMenuVisible = false;
   }
 
   onMount(async () => {
@@ -410,15 +409,15 @@
         p5Instance.remove();
       }
 
-      //createCanvasInstance();
       if (viewMode === 'expert') {
-            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         } else if (viewMode === 'physics') {
-            p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         } else {
             // Basic view
-            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
-        }    }
+            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+        }
+    }
 
     // Add click handler to hide context menu when clicking outside
     document.addEventListener('click', (event) => {
@@ -428,30 +427,6 @@
                 hideContextMenu();
             }
         }
-    });
-
-    const canvasElement = document.getElementById('p5Canvas');
-    canvasElement.addEventListener('contextmenu', (event) => {
-        event.preventDefault(); // Prevent the default context menu
-        const selectedNodes = []; // Get your selected nodes logic here
-        showContextMenu(event.clientX, event.clientY, {
-            onDelete: () => {
-                // Implement delete logic
-                console.log('Delete action');
-                hideContextMenu();
-            },
-            onDuplicate: () => {
-                // Implement duplicate logic
-                console.log('Duplicate action');
-                hideContextMenu();
-            },
-            onChangeStitchType: () => {
-                // Implement change stitch type logic
-                console.log('Change stitch type action');
-                hideContextMenu();
-            }
-        });
-        event.stopPropagation(); // Prevent the click from being handled by the document click handler
     });
   });
 
@@ -466,12 +441,12 @@
 
         // Create a new p5 instance with the appropriate drawing function based on view mode
         if (viewMode === 'expert') {
-            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         } else if (viewMode === 'physics') {
-            p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         } else {
             // Basic view
-            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         }
     }
   }
@@ -655,9 +630,42 @@
     <ContextMenu 
         x={contextMenuProps.x}
         y={contextMenuProps.y}
-        on:delete={contextMenuProps.onDelete}
-        on:duplicate={contextMenuProps.onDuplicate}
-        on:changeStitchType={contextMenuProps.onChangeStitchType}
+        on:delete={() => {
+            console.log("App: delete event received");
+            if (p5Instance) {
+                console.log("App: p5Instance exists");
+                const selectedNodes = p5Instance.getSelectedNodes();
+                console.log("App: selected nodes", selectedNodes);
+                if (selectedNodes && selectedNodes.length > 0) {
+                    console.log("App: calling deleteSelectedNodes");
+                    p5Instance.deleteSelectedNodes(selectedNodes);
+                    redrawCanvas();
+                }
+            } else {
+                console.log("App: p5Instance is null");
+            }
+            hideContextMenu();
+        }}
+        on:duplicate={() => {
+            if (p5Instance) {
+                const selectedNodes = p5Instance.getSelectedNodes();
+                if (selectedNodes && selectedNodes.length > 0) {
+                    p5Instance.duplicateSelectedNodes(selectedNodes);
+                    redrawCanvas();
+                }
+            }
+            hideContextMenu();
+        }}
+        on:changeStitchType={() => {
+            if (p5Instance) {
+                const selectedNodes = p5Instance.getSelectedNodes();
+                if (selectedNodes && selectedNodes.length > 0) {
+                    p5Instance.changeStitchType(selectedNodes);
+                    redrawCanvas();
+                }
+            }
+            hideContextMenu();
+        }}
     />
 {/if}
 
