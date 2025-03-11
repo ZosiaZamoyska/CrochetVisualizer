@@ -35,7 +35,7 @@
   let newPatternNotes = "";
   let viewMode = 'basic';
   let shapes = [];
-  
+
   let isSelecting = false;
   let selectionStart = { x: 0, y: 0 };
   let selectionEnd = { x: 0, y: 0 };
@@ -57,11 +57,15 @@
     return Array.from(uniqueStitches);
   }
 
-  // Update stitch types when pattern changes
+  // Combine parsing and formatting into a single reactive statement
   $: {
-    patternInput;
-    parsePattern(patternInput.trim());
-    formattedPattern = formatPattern(); // Run this AFTER parsePattern updates grid
+    // Trim the pattern input and parse it
+    const trimmedInput = patternInput.trim();
+    parsePattern(trimmedInput); // Call parsePattern once
+
+    // Update formattedPattern after parsing
+    formattedPattern = formatPattern(); // This will use the updated grid from parsePattern
+    redrawCanvas(); // Redraw the canvas after updating the pattern
   }
   
   
@@ -92,10 +96,7 @@
   $: patternInput, formattedPattern = formatPattern();
 
   // Update pattern text when patternInput changes
-  $: {
-    patternInput;
-    parsePattern(patternInput.trim());
-  }
+
 
   function playPattern() {
     if (isPlaying) {
@@ -408,7 +409,7 @@
 
     // Set initial status to waiting
     status = "waiting";
-    parsePattern(patternInput);
+    //parsePattern(patternInput);
 
     if (typeof window !== 'undefined') {
       const module = await import('p5');
@@ -639,7 +640,6 @@
     <ContextMenu 
         x={contextMenuProps.x}
         y={contextMenuProps.y}
-        stitchesType={stitchesType}
         on:delete={() => {
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
@@ -661,15 +661,17 @@
             hideContextMenu();
         }}
         on:changeStitchType={(event) => {
+            const stitchType = event.detail;
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
-                    p5Instance.changeStitchType(selectedNodes, event.detail.stitchType);
+                    p5Instance.changeStitchType(selectedNodes, stitchType);
                     redrawCanvas();
                 }
             }
             hideContextMenu();
         }}
+        stitchesType={stitchesType}
     />
 {/if}
 

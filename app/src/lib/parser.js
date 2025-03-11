@@ -4,12 +4,10 @@ export let grid = [];
 export const patternInput = writable('');
 
 export function parsePattern(input) {
-    // Ensure input is valid
-    if (!input || typeof input !== 'string') {
-        console.error('Invalid pattern input:', input);
-        return;
+    // make sure input is valid 
+    if (input === null || input === undefined || input === '') {
+        console.error('parsePattern: Invalid input:', input);  
     }
-
     let stitches = input.split(" ");
     let tempGrid = [];
     let row = [];

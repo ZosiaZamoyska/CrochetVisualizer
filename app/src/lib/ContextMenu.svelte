@@ -17,9 +17,8 @@
         dispatch('duplicate');
     }
 
-    function handleStitchTypeChange(selectedType) {
-        dispatch('changeStitchType', { stitchType: selectedType });
-        showStitchTypes = false; // Hide submenu after selection
+    function handleChangeStitchType(stitchType) {
+        dispatch('changeStitchType', stitchType);
     }
 
     function handleMenuClick(event) {
@@ -79,7 +78,7 @@
         {#if showStitchTypes}
             <div class="stitch-type-submenu">
                 {#each stitchesType as stitch}
-                    <div class="stitch-type-item" on:click={() => handleStitchTypeChange(stitch)}>
+                    <div class="stitch-type-item" on:click={() => handleChangeStitchType(stitch)}>
                         {stitch}
                     </div>
                 {/each}

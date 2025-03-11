@@ -328,12 +328,14 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
     }
 
     function changeStitchType(nodes, stitchType) {
+        const stitchTypes = ['ch', 'sc', 'dc', ...customStitches.map(s => s.name)];
+        // Update the nodes with the new stitch type
         nodes.forEach(node => {
             // Find and update the node in the grid
             for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
                 for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
                     if (positions_null[rowIndex][colIndex] === node) {
-                        grid[rowIndex][colIndex] = stitchType;
+                        grid[rowIndex][colIndex] = stitchType; // Update to the new stitch type
                     }
                 }
             }
