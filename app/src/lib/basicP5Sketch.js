@@ -81,7 +81,7 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
           let controlY1 = y1;
           let controlX2 = x2 + dir * (stitchSize + horizontalSpacing) / 2;
           let controlY2 = y2;
-  
+          p5.noFill();
           p5.bezier(x1, y1, controlX1, controlY1, controlX2, controlY2, x2, y2);
   
           let t = 0.74;
@@ -327,18 +327,13 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.redraw();
     }
 
-    function changeStitchType(nodes) {
-        const stitchTypes = ['ch', 'sc', 'dc', ...customStitches.map(s => s.name)];
-        const currentType = nodes[0].stitch;
-        const currentIndex = stitchTypes.indexOf(currentType);
-        const nextType = stitchTypes[(currentIndex + 1) % stitchTypes.length];
-
+    function changeStitchType(nodes, stitchType) {
         nodes.forEach(node => {
             // Find and update the node in the grid
             for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
                 for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
                     if (positions_null[rowIndex][colIndex] === node) {
-                        grid[rowIndex][colIndex] = nextType;
+                        grid[rowIndex][colIndex] = stitchType;
                     }
                 }
             }

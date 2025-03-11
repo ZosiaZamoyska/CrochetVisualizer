@@ -639,12 +639,12 @@
     <ContextMenu 
         x={contextMenuProps.x}
         y={contextMenuProps.y}
+        stitchesType={stitchesType}
         on:delete={() => {
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
                     p5Instance.deleteSelectedNodes(selectedNodes);
-                    //patternInput = gridToPattern();
                     redrawCanvas();
                 }
             }
@@ -660,11 +660,11 @@
             }
             hideContextMenu();
         }}
-        on:changeStitchType={() => {
+        on:changeStitchType={(event) => {
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
-                    p5Instance.changeStitchType(selectedNodes);
+                    p5Instance.changeStitchType(selectedNodes, event.detail.stitchType);
                     redrawCanvas();
                 }
             }
