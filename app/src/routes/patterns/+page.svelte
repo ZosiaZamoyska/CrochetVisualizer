@@ -1,14 +1,18 @@
 <script>
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import '$lib/App.css';
 
   let savedPatterns = [];
 
   function loadPattern(pattern) {
-    // Store the pattern data in localStorage for the design page to access
-    localStorage.setItem('patternToLoad', JSON.stringify(pattern));
-    // Navigate to the design page
-    window.location.href = '/';
+    console.log('Loading pattern:', pattern); // Debugging line
+    if (pattern) {
+      localStorage.setItem('patternToLoad', JSON.stringify(pattern));
+      goto('/');
+    } else {
+      console.error('No pattern provided to load.'); // Error handling
+    }
   }
 
   function deletePattern(id) {
@@ -17,10 +21,12 @@
   }
 
   onMount(() => {
-    // Load saved patterns from localStorage
     const saved = localStorage.getItem('savedPatterns');
     if (saved) {
       savedPatterns = JSON.parse(saved);
+      console.log('Loaded patterns:', savedPatterns); // Debugging line
+    } else {
+      console.log('No saved patterns found.'); // Debugging line
     }
   });
 </script>

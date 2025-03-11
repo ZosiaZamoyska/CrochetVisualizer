@@ -327,17 +327,25 @@
   }
 
   function loadPattern(pattern) {
-    patternInput = pattern.pattern;
-    chColor = pattern.colors.ch;
-    scColor = pattern.colors.sc;
-    dcColor = pattern.colors.dc;
-    customStitches = pattern.colors.custom;
-    stitchesType = pattern.stitchesType;
-    verticalSpacing = pattern.spacing.vertical;
-    horizontalSpacing = pattern.spacing.horizontal;
-    activeTab = 'make';
-    parsePattern(patternInput.trim());
-    redrawCanvas();
+    console.log('Loading pattern:', pattern); // Debugging line
+    if (pattern) {
+        // Set the patternInput to the pattern string
+        patternInput = pattern.pattern;
+        // Set other properties as needed
+        chColor = pattern.colors.ch;
+        scColor = pattern.colors.sc;
+        dcColor = pattern.colors.dc;
+        customStitches = pattern.colors.custom;
+        stitchesType = pattern.stitchesType;
+        verticalSpacing = pattern.spacing.vertical;
+        horizontalSpacing = pattern.spacing.horizontal;
+
+        // Call parsePattern to update the grid
+        parsePattern(patternInput.trim());
+        redrawCanvas();
+    } else {
+        console.error('No pattern provided to load.'); // Error handling
+    }
   }
 
   function deletePattern(id) {
