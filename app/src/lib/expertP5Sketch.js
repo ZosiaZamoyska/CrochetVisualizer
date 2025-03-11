@@ -11,7 +11,6 @@ export function createExpertP5Instance(p5, grid, stitchesDone, isPlaying, vertic
     
     p5.draw = () => {
       p5.clear();
-      p5.background(255);
     
       const xStart = 50;
       const yStart = 50;

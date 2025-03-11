@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 
 export let grid = [];
+export const patternInput = writable('');
 
 export function parsePattern(input) {
     let stitches = input.split(" ");
@@ -110,4 +111,44 @@ export function parsePattern(input) {
     }
     grid = normalizedGrid; //.reverse();
 }
+
+export function gridToPattern() {
+    let pattern = [];
+
+    for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+        
+        let row = grid[rowIndex];
+        let rowStitches = [];
+        // Find first and last non-null stitch in the row
+        let start = row.findIndex(stitch => stitch !== null);
+        let end = row.length - 1;
+        while (end >= 0 && row[end] === null) end--;
+        if (rowIndex !== 0) {
+            rowStitches.push('ch');
+        }
+        if (start === -1) continue; // Skip empty rows
+
+        // Push stitches based on row index
+        if (rowIndex % 2 === 0) { // Even row
+            for (let i = start; i <= end; i++) {
+                if (row[i] !== null) {
+                    rowStitches.push(row[i]);
+                }
+            }
+        } else { // Odd row
+            for (let i = end; i >= start; i--) {
+                if (row[i] !== null) {
+                    rowStitches.push(row[i]);
+                }
+            }
+        }
+        pattern.push(rowStitches.join(' '));
+    }
+    let patternString = pattern.join(' ');
+    console.log(patternString);
+
+    patternInput.set(patternString);
+    return patternString;
+}
+
 

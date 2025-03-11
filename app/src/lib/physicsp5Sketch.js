@@ -15,7 +15,6 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
 
     p5.draw = () => {
         p5.clear();
-        p5.background(255);
         const ovalSize = 30;
         const stitchSize = 30;
 

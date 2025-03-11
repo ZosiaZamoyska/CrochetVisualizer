@@ -6,6 +6,7 @@
   import { createPhysicsP5Instance } from './physicsp5Sketch.js';
   import { createExpertP5Instance } from './expertP5Sketch.js';
   import { enableSelection } from './interactiveEditing.js';
+  import { gridToPattern } from './parser.js';
   import './App.css';
   import { jsPDF } from 'jspdf';
   import ContextMenu from './ContextMenu.svelte';
@@ -631,18 +632,13 @@
         x={contextMenuProps.x}
         y={contextMenuProps.y}
         on:delete={() => {
-            console.log("App: delete event received");
             if (p5Instance) {
-                console.log("App: p5Instance exists");
                 const selectedNodes = p5Instance.getSelectedNodes();
-                console.log("App: selected nodes", selectedNodes);
                 if (selectedNodes && selectedNodes.length > 0) {
-                    console.log("App: calling deleteSelectedNodes");
                     p5Instance.deleteSelectedNodes(selectedNodes);
+                    //patternInput = gridToPattern();
                     redrawCanvas();
                 }
-            } else {
-                console.log("App: p5Instance is null");
             }
             hideContextMenu();
         }}

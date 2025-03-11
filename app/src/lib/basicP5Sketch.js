@@ -1,7 +1,7 @@
 import { draw } from 'svelte/transition';
 import { enableSelection } from './interactiveEditing.js';
 import  ContextMenu from './ContextMenu.svelte'; // Import the context menu component
-
+import { gridToPattern } from './parser';
 export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = [], onShowContextMenu) {
     let positions = [];
     let positions_null = [];
@@ -17,7 +17,6 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.canvas.addEventListener('contextmenu', (event) => {
             event.preventDefault();
             const nodes = selectionHandler.getSelectedNodes();
-            console.log("Right click - selected nodes:", nodes);
             if (nodes.length > 0) {
                 onShowContextMenu(event.clientX, event.clientY);
             }
@@ -265,9 +264,7 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.text(position.stitch, position.x, position.y);
     }
     function deleteSelectedNodes(nodes) {
-        console.log("deleteSelectedNodes called with nodes:", nodes);
         if (!nodes || nodes.length === 0) {
-            console.log("No nodes to delete");
             return;
         }
 
@@ -275,13 +272,14 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
             for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
                 for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
                     if (positions_null[rowIndex][colIndex] === node) {
-                        console.log("Deleting node at", rowIndex, colIndex);
                         grid[rowIndex][colIndex] = null;
                     }
                 }
             }
         });
-        
+        // Update pattern input after deletion
+        //patternInput = gridToPattern();
+
         // Clear selection after deletion
         if (selectionHandler) {
             selectionHandler.getSelectedNodes().length = 0;
@@ -292,24 +290,41 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
     }
 
     function duplicateSelectedNodes(nodes) {
-        const newNodes = nodes.map(node => ({
-            ...node,
-            x: node.x + horizontalSpacing,
-            y: node.y
-        }));
-        
-        // Add new nodes to the grid
-        newNodes.forEach(newNode => {
-            let inserted = false;
-            for (let rowIndex = 0; rowIndex < grid.length && !inserted; rowIndex++) {
-                for (let colIndex = 0; colIndex < grid[rowIndex].length && !inserted; colIndex++) {
-                    if (!grid[rowIndex][colIndex]) {
-                        grid[rowIndex][colIndex] = newNode.stitch;
-                        inserted = true;
+        if (!nodes || nodes.length === 0) {
+            return;
+        }
+
+        nodes.forEach(node => {
+            for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+                for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+                    if (positions_null[rowIndex][colIndex] === node) {
+                        // Create a new node with the same stitch type
+                        const newNode = {
+                            ...node,
+                            x: node.x + horizontalSpacing, // Adjust position for duplication
+                            y: node.y // Keep the same y position
+                        };
+
+                        // Find the first available position in the grid to insert the new node
+                        let inserted = false;
+                        for (let r = 0; r < grid.length && !inserted; r++) {
+                            for (let c = 0; c < grid[r].length && !inserted; c++) {
+                                if (!grid[r][c]) { // Check for an empty spot
+                                    grid[r][c] = newNode.stitch; // Place the stitch type in the grid
+                                    inserted = true; // Mark as inserted
+                                }
+                            }
+                        }
                     }
                 }
             }
         });
+
+        // Update pattern input after duplication
+        gridToPattern();
+
+        // Force a redraw
+        p5.redraw();
     }
 
     function changeStitchType(nodes) {

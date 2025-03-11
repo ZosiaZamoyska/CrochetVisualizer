@@ -664,3 +664,32 @@ button.destructive:hover {
   border-radius: 4px;
   border: 1px solid var(--border-color);
 }
+
+.tooltip-container {
+  position: relative;
+  display: inline-block; /* Ensures the tooltip is positioned relative to the text */
+  cursor: pointer; /* Changes cursor to pointer on hover */
+}
+
+.tooltip {
+  visibility: hidden; /* Hidden by default */
+  width: 250px; /* Set a width for the tooltip */
+  background-color: #ffffff; /* Background color */
+  text-align: center; /* Center the text */
+  border-radius: 5px; /* Rounded corners */
+  padding: 5px; /* Padding */
+  position: absolute; /* Position it absolutely */
+  z-index: 1; /* Ensure it appears above other elements */
+  top: 100%; /* Position below the question mark */
+  left: 50%; /* Center it horizontally */
+  transform: translateX(-100%); /* Adjust to center */
+  margin-top: 5px; /* Space between the question mark and tooltip */
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.3s; /* Smooth transition */
+    border: 1px solid black; /* Black border */
+}
+
+.tooltip-container:hover .tooltip {
+  visibility: visible; /* Show tooltip on hover */
+  opacity: 1; /* Make it visible */
+}

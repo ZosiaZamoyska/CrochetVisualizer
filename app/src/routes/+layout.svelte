@@ -21,6 +21,11 @@
     >
       My Patterns
     </a>
+    <span class="tooltip-container">
+      &#63;
+      <span class="tooltip"><img src="data/Chart-Symbol.jpg" alt="Help" style="width: 250px;" />
+      </span>
+    </span>
   </nav>
 </header>
 
