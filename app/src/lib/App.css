@@ -176,9 +176,9 @@ button.destructive:hover {
   transform: translateY(-1px);
 }
 
-.button-group {
+.save-button-group {
   display: flex;
-  gap: 10px;
+  gap: 0px;
   margin-bottom: 10px;
 }
 
@@ -188,14 +188,14 @@ button.destructive:hover {
 }
 
 /* Vertical button group */
-.button-group.vertical {
+.save-button-group.vertical {
   flex-direction: column;
   margin-top: 0;
   margin-bottom: 0;
 }
 
 /* Horizontal button group */
-.button-group.horizontal {
+.save-button-group.horizontal {
   flex-direction: row;
   gap: 10px;
   margin-top: 0;

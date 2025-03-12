@@ -41,6 +41,7 @@
   let selectionStart = { x: 0, y: 0 };
   let selectionEnd = { x: 0, y: 0 };
   let selectedNodes = [];
+  let gridEditing = false;
   
   let contextMenuVisible = false;
   let contextMenuProps = {
@@ -51,6 +52,9 @@
       onChangeStitchType: () => {}
   };
 
+  let showAddStitchDropdown = false;
+  let addButtonRect = null;
+
   // Function to extract unique stitch types from pattern
   function extractStitchTypes(pattern) {
     const stitches = pattern.trim().split(" ").filter(s => s);
@@ -58,18 +62,46 @@
     return Array.from(uniqueStitches);
   }
 
-  // Combine parsing and formatting into a single reactive statement
+  // Remove old reactive statements and replace with new ones
   $: {
-    // Trim the pattern input and parse it
-    const trimmedInput = patternInput.trim();
-    parsePattern(trimmedInput); // Call parsePattern once
-
-    // Update formattedPattern after parsing
-    formattedPattern = formatPattern(); // This will use the updated grid from parsePattern
-    redrawCanvas(); // Redraw the canvas after updating the pattern
+    if (!gridEditing && patternInput) {
+      // Only parse pattern from input when not in grid editing mode
+      console.log('Pattern input changed, updating grid');
+      const trimmedInput = patternInput.trim();
+      parsePattern(trimmedInput);
+      formattedPattern = formatPattern();
+    }
   }
   
-  
+  $: {
+    if (grid && gridEditing) {
+      console.log('Grid changed while editing, updating pattern');
+      // Update formatted pattern from current grid state
+      formattedPattern = formatPattern();
+      // Update pattern input to match grid (but don't trigger parsing)
+      patternInput = gridToPattern();
+    }
+  }
+
+  // Function to handle pattern input changes
+  function handlePatternInput(event) {
+    if (!gridEditing) {
+      parsePattern(event.target.value.trim());
+    }
+  }
+
+  // Function to toggle grid editing mode
+  function toggleGridEditing() {
+    gridEditing = !gridEditing;
+    if (gridEditing) {
+      console.log('Entering grid editing mode');
+    } else {
+      console.log('Exiting grid editing mode, syncing with pattern');
+      patternInput = gridToPattern();
+      parsePattern(patternInput.trim());
+    }
+  }
+
   // Predefined crochet patterns
   const patterns = {
     "Basic Chain": "ch ch ch ch ch ch ch ch",
@@ -372,6 +404,38 @@
     contextMenuVisible = false;
   }
 
+  // Add the reload function near the other utility functions
+  function reloadPage() {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }
+
+  function addStitch(stitchType) {
+    patternInput = (patternInput.trim() + " " + stitchType).trim();
+    parsePattern(patternInput);
+    showAddStitchDropdown = false;
+  }
+
+  function toggleAddDropdown(event) {
+    showAddStitchDropdown = !showAddStitchDropdown;
+    if (showAddStitchDropdown) {
+      // Store the button's position for dropdown placement
+      const button = event.target;
+      const rect = button.getBoundingClientRect();
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+      
+      addButtonRect = {
+        top: rect.top + scrollTop,
+        left: rect.left + scrollLeft,
+        bottom: rect.bottom + scrollTop,
+        height: rect.height,
+        width: rect.width
+      };
+    }
+  }
+
   onMount(async () => {
 
     const saved = localStorage.getItem('savedPatterns');
@@ -447,6 +511,9 @@
                 hideContextMenu();
             }
         }
+        if (showAddStitchDropdown && !event.target.closest('.add-stitch-container')) {
+            showAddStitchDropdown = false;
+        }
     });
   });
 
@@ -487,10 +554,28 @@
       {/each}
     </select>
     <div class="button-group">
-      <button class="primary" on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
-      <button class="primary" on:click={undoLastStitch}>Undo</button>
+      <div class="add-stitch-container">
+          <button class="primary" on:click={toggleAddDropdown}>Add ▼</button>
+          {#if showAddStitchDropdown}
+            <div class="stitch-dropdown">
+              {#each stitchesType as stitch}
+                <button class="dropdown-item" on:click={() => addStitch(stitch)}>{stitch}</button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+        <button class="primary" on:click={undoLastStitch}>Undo</button>
+        <button class="primary" on:click={playPattern}>{isPlaying ? "Stop" : "Play"}</button>
+        <button class="secondary" on:click={reloadPage}>↻ Reset</button>
     </div>
-    <input type="text" bind:value={patternInput} on:input={() => parsePattern(patternInput.trim())} placeholder="Enter crochet pattern">
+    <input 
+      type="text" 
+      bind:value={patternInput} 
+      on:input={handlePatternInput}
+      placeholder="Enter crochet pattern"
+      disabled={gridEditing}
+      class:editing={gridEditing}
+    >
     
     <div class="spacing-controls">
       <div class="settings-header" on:click={() => showSettings = !showSettings}>
@@ -607,9 +692,9 @@
       <div class="pattern-text">
         {formattedPattern}
       </div>
-      <div class="button-group vertical">
+      <div class="save-button-group vertical">
         <button class="primary" on:click={savePattern}>Save pattern</button>
-        <div class="button-group horizontal">
+        <div class="save-button-group horizontal">
           <button class="secondary" on:click={exportToPDF}>Export PDF</button>
           <button class="secondary" on:click={saveChart}>Export chart</button>
         </div>
@@ -654,8 +739,8 @@
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
+                    gridEditing = true; // Enter grid editing mode
                     p5Instance.deleteSelectedNodes(selectedNodes);
-                    patternInput = gridToPattern();
                     redrawCanvas();
                 }
             }
@@ -676,6 +761,7 @@
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
+                    gridEditing = true; // Enter grid editing mode
                     p5Instance.changeStitchType(selectedNodes, stitchType);
                     redrawCanvas();
                 }
@@ -691,5 +777,64 @@
     width: 800px;
     height: 600px;
     margin: 20px auto;
+  }
+  .editing {
+    background-color: #f0f0f0;
+    cursor: not-allowed;
+  }
+  .button-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 10px 0;
+  }
+  .save-button-group {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+  }
+  button.secondary {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  button.secondary:hover {
+    background-color: #5a6268;
+  }
+  .add-stitch-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .stitch-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    min-width: 100%;
+    margin-top: 2px;
+  }
+
+  .dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .dropdown-item:hover {
+    background-color: #f0f0f0;
   }
 </style>
