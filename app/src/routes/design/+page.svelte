@@ -3,6 +3,7 @@
   import '$lib/App.css';
   import ShapeLibrary from '$lib/components/ShapeLibrary.svelte';
   import { PATTERNS, SHAPE_TYPES, getRandomPosition, alignShapes } from '$lib/shapes';
+  import { patternToLoad } from '$lib/store';
 
   let shapes = [];
   let connections = [];
@@ -10,7 +11,7 @@
   let selectedShape = null;
   let isEdgeSelectionMode = false;
   let connectionStep = 0; // 0: not connecting, 1: selecting first edge, 2: selecting second edge
-  let patternToLoad = null;
+  // let patternToLoad = null;
 
   function handleShapeSelect(pattern) {
     const position = getRandomPosition(document.querySelector('.canvas-container'));
@@ -90,16 +91,17 @@
                        connectionStep === 1 ? 'Select first edge' :
                        'Select second edge';
 
-  onMount(() => {
-      const loadedPattern = localStorage.getItem('patternToLoad');
-      if (loadedPattern) {
-          patternToLoad = JSON.parse(loadedPattern);
-          console.log('Loaded pattern for design:', patternToLoad); // Debugging line
-          loadPattern(patternToLoad); // Call loadPattern with the loaded pattern
-      } else {
-          console.log('No pattern to load from local storage.');
-      }
-  });
+
+  // onMount(() => {
+  //     const loadedPattern = localStorage.getItem('patternToLoad');
+  //     if (loadedPattern) {
+  //         patternToLoad = JSON.parse(loadedPattern);
+  //         console.log('Loaded pattern for design:', patternToLoad); // Debugging line
+  //         loadPattern(patternToLoad); // Call loadPattern with the loaded pattern
+  //     } else {
+  //         console.log('No pattern to load from local storage.');
+  //     }
+  // });
 </script>
 
 <div class="container">

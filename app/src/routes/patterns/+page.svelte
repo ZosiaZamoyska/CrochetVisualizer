@@ -1,14 +1,15 @@
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { patternToLoad } from '$lib/store';
   import '$lib/App.css';
 
   let savedPatterns = [];
 
   function loadPattern(pattern) {
-    console.log('Loading pattern:', pattern); // Debugging line
     if (pattern) {
-      localStorage.setItem('patternToLoad', JSON.stringify(pattern));
+      // localStorage.setItem('patternToLoad', JSON.stringify(pattern));
+      patternToLoad.set(pattern);
       goto('/');
     } else {
       console.error('No pattern provided to load.'); // Error handling

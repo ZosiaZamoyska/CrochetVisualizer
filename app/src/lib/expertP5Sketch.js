@@ -7,6 +7,7 @@ export function createExpertP5Instance(p5, grid, stitchesDone, isPlaying, vertic
     p5.setup = () => {
       p5.createCanvas(800, 600);
       p5.background(255);
+      //p5.noLoop();
     };
     
     p5.draw = () => {

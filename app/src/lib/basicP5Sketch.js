@@ -11,6 +11,7 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
     p5.setup = () => {
         p5.createCanvas(800, 600);
         p5.background(255);
+        //p5.noLoop();
         selectionHandler = enableSelection(p5, positions_null);
         
         // Add right-click handler for context menu
@@ -340,11 +341,6 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
                 }
             }
         });
-    }
-
-    function redrawCanvas() {
-        p5.clear();
-        p5.draw(); // Call the draw function to refresh the canvas
     }
 
     // Make sure these are properly exposed

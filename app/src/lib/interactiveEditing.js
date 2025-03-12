@@ -14,7 +14,6 @@ export function enableSelection(p5Instance, positions_null) {
             selectionEnd = { x: p5Instance.mouseX, y: p5Instance.mouseY };
             // Clear previous selection only when starting a new one
             selectedNodes = [];
-            console.log("Selection started at:", selectionStart);
         }
     };
 
@@ -29,7 +28,6 @@ export function enableSelection(p5Instance, positions_null) {
             selectionEnd = { x: p5Instance.mouseX, y: p5Instance.mouseY };
             updateSelectedNodes();
             isSelecting = false;
-            console.log("Selection completed, selected nodes:", selectedNodes);
         }
     };
 
@@ -48,7 +46,6 @@ export function enableSelection(p5Instance, positions_null) {
                 }
             });
         });
-        console.log("Updated selected nodes:", selectedNodes);
     }
 
     function drawSelectionArea() {
