@@ -7,6 +7,8 @@
   import { createExpertP5Instance } from './expertP5Sketch.js';
   import { enableSelection } from './interactiveEditing.js';
   import { gridToPattern } from './parser.js';
+  import { patternToLoad } from '$lib/store';
+
   import './App.css';
   import { jsPDF } from 'jspdf';
   import ContextMenu from './ContextMenu.svelte';
@@ -35,7 +37,6 @@
   let newPatternNotes = "";
   let viewMode = 'basic';
   let shapes = [];
-
   let isSelecting = false;
   let selectionStart = { x: 0, y: 0 };
   let selectionEnd = { x: 0, y: 0 };
@@ -127,6 +128,7 @@
 
   // Function to trigger the canvas redraw
   function redrawCanvas() {
+
     createCanvasInstance();
   }
 
@@ -333,9 +335,9 @@
         // Set the patternInput to the pattern string
         patternInput = pattern.pattern;
         // Set other properties as needed
-        chColor = pattern.colors.ch;
-        scColor = pattern.colors.sc;
-        dcColor = pattern.colors.dc;
+        chColor = pattern.colors?.ch;
+        scColor = pattern.colors?.sc;
+        dcColor = pattern.colors?.dc;
         customStitches = pattern.colors.custom;
         stitchesType = pattern.stitchesType;
         verticalSpacing = pattern.spacing.vertical;
@@ -343,7 +345,8 @@
 
         // Call parsePattern to update the grid
         parsePattern(patternInput.trim());
-        redrawCanvas();
+        //redrawCanvas();
+        //patternToLoad.set(null);
     } else {
         console.error('No pattern provided to load.'); // Error handling
     }
@@ -370,11 +373,18 @@
   }
 
   onMount(async () => {
-    // Load saved patterns
+
     const saved = localStorage.getItem('savedPatterns');
     if (saved) {
       savedPatterns = JSON.parse(saved);
     }
+    const loadedPattern = localStorage.getItem('patternToLoad');
+    
+    const unsubscribe = patternToLoad.subscribe(value => {
+      if (value) {
+        loadPattern(value);
+      }
+    });
 
     const socket = new WebSocket(`ws://localhost:${websocketPort}`);
   
@@ -407,7 +417,6 @@
       status = "waiting";
     };
 
-    // Set initial status to waiting
     status = "waiting";
     //parsePattern(patternInput);
 
@@ -416,9 +425,10 @@
       const p5 = module.default;
 
       if (p5Instance) {
+        console.log("removing p5instance");
         p5Instance.remove();
       }
-
+      console.log(grid);
       if (viewMode === 'expert') {
             p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         } else if (viewMode === 'physics') {

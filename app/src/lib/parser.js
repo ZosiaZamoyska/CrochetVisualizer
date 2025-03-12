@@ -5,9 +5,9 @@ export const patternInput = writable('');
 
 export function parsePattern(input) {
     // make sure input is valid 
-    if (input === null || input === undefined || input === '') {
+    /*if (input === null || input === undefined || input === '') {
         console.error('parsePattern: Invalid input:', input);  
-    }
+    }*/
     let stitches = input.split(" ");
     let tempGrid = [];
     let row = [];
