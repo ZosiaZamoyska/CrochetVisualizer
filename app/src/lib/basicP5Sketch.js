@@ -279,7 +279,7 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
             }
         });
         // Update pattern input after deletion
-        //patternInput = gridToPattern();
+        gridToPattern();
 
         // Clear selection after deletion
         if (selectionHandler) {

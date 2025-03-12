@@ -655,6 +655,7 @@
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
                     p5Instance.deleteSelectedNodes(selectedNodes);
+                    patternInput = gridToPattern();
                     redrawCanvas();
                 }
             }
