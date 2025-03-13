@@ -1,8 +1,38 @@
 <script>
-  import { Handle, Position } from '@xyflow/svelte';
+  import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
+  //import { updateDownstreamInstructions } from './+page.svelte';
+
   export let data;
   let isEditing = false;
   let text = data.text;
+
+  // Store connections in metadata
+  const connections = useNodeConnections({
+    handleType: 'target'
+  });
+
+  $: nodesData = useNodesData($connections.map((connection) => connection.source));
+  
+  // Update metadata whenever connections change
+ 
+  $: if ($nodesData) {
+    data.instructions = [
+      ...$nodesData.flatMap(node => {
+        if (node.type === 'text') {
+          return [{
+            type: 'text',
+            content: node.data.text
+          }];
+        }
+        return node.data.instructions || [];
+      }),
+      {
+        type: 'text',
+        content: data.text
+      }
+    ];
+    console.log(data.instructions);
+  }
 
   function handleDoubleClick() {
     isEditing = true;
@@ -11,22 +41,31 @@
   function handleBlur() {
     isEditing = false;
     data.text = text;
+    // Update instructions with new text
+    data.instructions = [{
+      type: 'text',
+      content: text
+    }];
   }
 
   function handleKeydown(event) {
     if (event.key === 'Enter') {
       isEditing = false;
       data.text = text;
+      // Update instructions with new text
+      data.instructions = [{
+        type: 'text',
+        content: text
+      }];
     }
   }
 </script>
 
-<div class="text-node">
+<div class="text-node" on:dblclick={handleDoubleClick}>
   <Handle type="target" position={Position.Left} />
   
   <div 
     class="text-container"
-    on:dblclick={handleDoubleClick}
   >
     {#if isEditing}
       <input
@@ -40,6 +79,7 @@
       <div class="text-content">{text}</div>
     {/if}
   </div>
+  
 
   <Handle type="source" position={Position.Right} />
 </div>

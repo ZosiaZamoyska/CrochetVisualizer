@@ -5,7 +5,8 @@
     SvelteFlow,
     Background,
     Controls,
-    MiniMap
+    MiniMap,
+    addEdge
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
   import { patternToLoad } from '$lib/store';
@@ -30,10 +31,11 @@
     }
   ];
 
+
+
+
   // Function to add a new pattern node to the canvas
   function addPatternNode(pattern, position) {
-    console.log('pattern', pattern);
-    console.log('grid', pattern.grid);
     const newNode = {
       id: `node-${nextNodeId}`,
       type: 'pattern',
@@ -42,7 +44,15 @@
         id: `node-${nextNodeId}`,
         label: pattern.name,
         image: pattern.preview,
-        pattern // Store the full pattern object for loading
+        formattedPattern: pattern.formattedPattern,
+        pattern,
+        instructions: [{
+          type: 'pattern',
+          name: pattern.name,
+          preview: pattern.preview,
+          grid: pattern.grid,
+          formattedPattern: pattern.formattedPattern
+        }]
       }
     };
     
@@ -59,13 +69,18 @@
       data: { 
         id: `node-${nextNodeId}`,
         label: 'Text Box',
-        text: 'Double click to edit'
+        text: 'Double click to edit',
+        instructions: [{
+          type: 'text',
+          content: 'Double click to edit'
+        }]
       }
     };
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
   }
+
   function addExportNode(position) {
     const newNode = {
       id: `node-${nextNodeId}`,
@@ -73,7 +88,8 @@
       position,
       data: { 
         id: `node-${nextNodeId}`,
-        label: 'Export Pattern'
+        label: 'Export Pattern',
+        instructions: [] // Initialize empty instructions array
       }
     };
     
@@ -104,6 +120,19 @@
     }
   }
 
+  // Handle edge connections
+  function handleConnect(params) {
+    console.log('handleConnect called with params:', params);
+    
+    if (params.source && params.target) {
+      console.log('Adding edge:', params.source, '->', params.target);
+      
+      // Update edges using addEdge helper
+      $edges = addEdge(params, $edges);
+
+    }
+  }
+
   // Load pattern into the main editor
   function loadPatternToEditor(nodeId) {
     const node = $nodes.find(n => n.id === nodeId);
@@ -130,6 +159,10 @@
       pattern: PatternNode,
       text: TextNode,
       export: ExportNode
+    },
+    defaultEdgeOptions: {
+      type: 'default',
+      animated: true
     }
   };
 </script>
@@ -170,7 +203,14 @@
   </div>
 
   <div class="canvas-container" on:drop={handleDrop} on:dragover={(e) => e.preventDefault()}>
-    <SvelteFlow {nodes} {edges} {...flowConfig}>
+    <SvelteFlow 
+      {nodes} 
+      {edges} 
+      nodeTypes={flowConfig.nodeTypes} 
+      fitView={flowConfig.fitView}
+      defaultEdgeOptions={flowConfig.defaultEdgeOptions}
+      on:connect={handleConnect}
+    >
       <Background />
       <Controls />
       <MiniMap />

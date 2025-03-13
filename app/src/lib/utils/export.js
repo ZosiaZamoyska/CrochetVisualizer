@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
-export async function exportPatternToPDF(patternData) {
+export async function exportPatternToPDF(instructions) {
   const doc = new jsPDF();
   let startY = 20;
   let currentY = [startY, startY]; // Separate Y positions for left and right columns
@@ -11,17 +11,18 @@ export async function exportPatternToPDF(patternData) {
   currentY = [startY + 15, startY + 15]; // Update start after title
 
   const patternsPerPage = 2;
-  const totalPages = Math.ceil(patternData.patterns.length / patternsPerPage);
+  const patterns = instructions.filter(item => item.type === 'pattern');
+  const totalPages = Math.ceil(patterns.length / patternsPerPage);
 
   const imagePromises = [];
 
+  // First, handle pattern nodes
   for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-
     for (let colIndex = 0; colIndex < patternsPerPage; colIndex++) {
       const patternIndex = pageIndex * patternsPerPage + colIndex;
-      if (patternIndex >= patternData.patterns.length) break;
+      if (patternIndex >= patterns.length) break;
 
-      const pattern = patternData.patterns[patternIndex];
+      const pattern = patterns[patternIndex];
       const columnX = colIndex === 0 ? 20 : 110;
 
       // Add pattern name
@@ -54,23 +55,23 @@ export async function exportPatternToPDF(patternData) {
             doc.addImage(img.src, 'PNG', columnX, currentY[colIndex], imgWidth, imgHeight);
             currentY[colIndex] += imgHeight + 5; // Move down after image
 
-            resolve(); // Signal done
+            resolve();
           };
 
           img.onerror = function () {
             console.error('Failed to load image');
             currentY[colIndex] += 5;
-            resolve(); // Continue anyway
+            resolve();
           };
         });
 
         imagePromises.push(imagePromise);
       }
 
-      // Add pattern text
-      if (pattern.grid) {
+      // Add pattern instructions
+      if (pattern.formattedPattern) {
         const maxWidth = 80;
-        const patternLines = pattern.grid.formattedPattern.split('\n');
+        const patternLines = pattern.formattedPattern.split('\n');
         patternLines.forEach(line => {
           const splitLines = doc.splitTextToSize(line, maxWidth);
           doc.text(splitLines, columnX, currentY[colIndex]);
@@ -82,36 +83,36 @@ export async function exportPatternToPDF(patternData) {
       currentY[colIndex] += 5;
     }
 
-    // Add new page if necessary (simplest way: when either column is close to bottom)
+    // Add new page if necessary
     if (pageIndex < totalPages - 1) {
       doc.addPage();
       currentY = [startY, startY]; // Reset for new page
     }
   }
 
-  // Add instructions section on new page if needed
-  const maxY = Math.max(currentY[0], currentY[1]); // Find which column is lower
-  if (patternData.instructions && patternData.instructions.length > 0) {
-    let instructionsY = maxY + 10;
-    if (instructionsY > 250) {
-      doc.addPage();
-      instructionsY = 20;
-    }
+  // Add text instructions section on new page
+  const textInstructions = instructions.filter(item => item.type === 'text');
+  if (textInstructions.length > 0) {
+    doc.addPage();
+    let instructionsY = 20;
 
     doc.setFontSize(16);
-    doc.text('Instructions', 20, instructionsY);
+    doc.text('Additional Instructions', 20, instructionsY);
     instructionsY += 10;
     doc.setFontSize(12);
 
-    patternData.instructions.forEach((instruction, index) => {
-      const splitInstruction = doc.splitTextToSize(`${index + 1}. ${instruction}`, 170);
-      doc.text(splitInstruction, 20, instructionsY);
-      instructionsY += splitInstruction.length * 7;
-
+    // Process all text instructions in sequence
+    textInstructions.forEach((instruction, index) => {
+      // Check if we need a new page
       if (instructionsY > 270) {
         doc.addPage();
         instructionsY = 20;
       }
+
+      // Split instruction text into lines
+      const splitInstruction = doc.splitTextToSize(`${index + 1}. ${instruction.content}`, 170);
+      doc.text(splitInstruction, 20, instructionsY);
+      instructionsY += splitInstruction.length * 7;
     });
   }
 

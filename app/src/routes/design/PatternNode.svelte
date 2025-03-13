@@ -1,76 +1,105 @@
 <script>
-  import { Handle, Position } from '@xyflow/svelte';
+  import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
   export let data;
+
+  // Store connections in metadata
+  const connections = useNodeConnections({
+    handleType: 'target'
+  });
+
+  $: nodesData = useNodesData($connections.map((connection) => connection.source));
+  
+  // Update metadata whenever connections change
+  $: if ($nodesData) {
+    data.instructions = [
+      ...$nodesData.flatMap(node => {
+        if (node.type === 'text') {
+          return [{
+            type: 'text',
+            content: node.data.text
+          }];
+        }
+        return node.data.instructions || [];
+      }),
+      {
+        type: 'pattern',
+        name: data.label,
+        preview: data.image,
+        grid: data.pattern.grid,
+        formattedPattern: data.pattern.formattedPattern
+      }
+    ];
+    console.log(data.instructions);
+  }
+
+  function handleLoad() {
+    window.loadPattern(data.id);
+  }
 </script>
 
-<div class="custom-node">
+<div class="pattern-node">
   <Handle type="target" position={Position.Left} />
-
-  <div class="preview-container">
+  
+  <div class="pattern-content">
     {#if data.image}
       <img src={data.image} alt={data.label} />
     {:else}
       <div class="no-preview">No preview</div>
     {/if}
+    <div class="pattern-name">{data.label}</div>
+    <div>{data.instructions}</div>
   </div>
-  <Handle type="source" position={Position.Right} />
 
+  <Handle type="source" position={Position.Right} />
 </div>
 
 <style>
-  .custom-node {
+  .pattern-node {
     padding: 10px;
     border-radius: 5px;
     background: white;
     border: 1px solid #ddd;
+    min-width: 150px;
+  }
+
+  .pattern-content {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    position: relative;
   }
-  .preview-container {
-    width: 120px;
-    height: 120px;
+
+  img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+  }
+
+  .no-preview {
+    width: 100px;
+    height: 100px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #ffffff;
-    border-radius: 4px;
-    overflow: hidden;
+    background: #f0f0f0;
+    color: #666;
+    font-size: 0.8rem;
   }
-  .preview-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .node-label {
-    font-size: 14px;
+
+  .pattern-name {
     font-weight: 500;
   }
-  .load-button {
+
+  button {
     padding: 4px 12px;
     background: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
   }
-  .load-button:hover {
-    background: var(--primary-color-dark);
-  }
-  .no-preview {
-    color: #666;
-    font-size: 12px;
-  }
 
-  :global(.svelte-flow__handle) {
-    width: 8px;
-    height: 8px;
-    background: var(--primary-color);
-  }
-
-  :global(.svelte-flow__handle:hover) {
+  button:hover {
     background: var(--primary-color-dark);
   }
 </style> 

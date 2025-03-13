@@ -10,32 +10,25 @@
   });
 
   $: nodesData = useNodesData($connections.map((connection) => connection.source));
-
+  
+  // Update metadata whenever connections change
+  $: if ($nodesData) {
+    data.instructions = [
+      ...$nodesData.flatMap(node => {
+        if (node.type === 'text') {
+          return [{
+            type: 'text',
+            content: node.data.text
+          }];
+        }
+        return node.data.instructions || [];
+      })
+    ];
+    console.log(data.instructions);
+  }
   async function handleExport() {
     try {
-      // Collect pattern data and text from connected nodes
-      const patternData = {
-        patterns: [],
-        instructions: []
-      };
-
-      // Process connected nodes
-      $nodesData.forEach(nodeData => {
-        if (nodeData.type === 'pattern') {
-          // Add formatted pattern
-          patternData.patterns.push({
-            name: nodeData.data.label,
-            grid: nodeData.data.pattern,
-            preview: nodeData.data.image
-          });
-        } else if (nodeData.type === 'text') {
-          // Add instruction text
-          patternData.instructions.push(nodeData.data.text);
-        }
-      });
-
-      // Export to PDF
-      await exportPatternToPDF(patternData);
+          await exportPatternToPDF(data.instructions);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Failed to export pattern. Please check the console for details.');
@@ -48,18 +41,19 @@
   
   <div class="export-container">
     <div class="preview-content">
-      {#if $nodesData.length === 0}
+      {#if !data.instructions || data.instructions.length === 0}
         <div class="no-connections">No connected nodes</div>
       {:else}
         <div class="connections-preview">
           <div class="preview-title">Pattern Preview:</div>
-          {#each $nodesData as nodeData}
-            {#if nodeData.type === 'pattern'}
+          {#each data.instructions as item}
+            {#if item.type === 'pattern'}
               <div class="pattern-preview">
-                <div class="pattern-name">{nodeData.data.label}</div>
+                <div class="pattern-name">{item.name}</div>
+                <div class="pattern-text">{item.instruction}</div>
               </div>
-            {:else if nodeData.type === 'text'}
-              <div class="text-preview">{nodeData.data.text}</div>
+            {:else if item.type === 'text'}
+              <div class="text-preview">{item.instruction}</div>
             {/if}
           {/each}
         </div>
@@ -69,11 +63,12 @@
     <button 
       class="export-button"
       on:click={handleExport}
-      disabled={$nodesData.length === 0}
+      disabled={!data.instructions || data.instructions.length === 0}
     >
       Export Pattern
     </button>
   </div>
+
 </div>
 
 <style>
