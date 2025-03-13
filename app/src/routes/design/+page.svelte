@@ -13,6 +13,8 @@
   import PatternNode from './PatternNode.svelte';
   import TextNode from './TextNode.svelte';
   import ExportNode from './ExportNode.svelte';
+  import FileNameNode from './FileNameNode.svelte';
+  import ColorNode from './ColorNode.svelte';
   let savedPatterns = [];
   const nodes = writable([]);
   const edges = writable([]);
@@ -23,6 +25,16 @@
       id: 'text-box',
       name: 'Text Box',
       type: 'text'
+    },
+    {
+      id: 'color-picker',
+      name: 'Color Picker',
+      type: 'color'
+    },
+    {
+      id: 'file-name',
+      name: 'File Name',
+      type: 'fileName'
     },
     {
       id: 'export-button',
@@ -97,6 +109,48 @@
     $nodes = [...$nodes, newNode];
   }
 
+  function addFileNameNode(position) {
+    const newNode = {
+      id: `node-${nextNodeId}`,
+      type: 'fileName',
+      position,
+      data: { 
+        id: `node-${nextNodeId}`,
+        label: 'File Name',
+        fileName: 'crochet-pattern',
+        instructions: [{
+          type: 'fileName',
+          fileName: 'crochet-pattern'
+        }]
+      }
+    };
+    
+    nextNodeId++;
+    $nodes = [...$nodes, newNode];
+  }
+
+  function addColorNode(position) {
+    const newNode = {
+      id: `node-${nextNodeId}`,
+      type: 'color',
+      position,
+      data: { 
+        id: `node-${nextNodeId}`,
+        label: 'Color Picker',
+        color: '#000000',
+        colorName: 'Black',
+        instructions: [{
+          type: 'color',
+          color: '#000000',
+          colorName: 'Black'
+        }]
+      }
+    };
+    
+    nextNodeId++;
+    $nodes = [...$nodes, newNode];
+  }
+
   // Handle drag and drop from pattern menu
   function handleDragStart(event, item) {
     event.dataTransfer.setData('item', JSON.stringify(item));
@@ -115,6 +169,10 @@
       addTextNode(position);
     } else if (item.type === 'export') {
       addExportNode(position);
+    } else if (item.type === 'fileName') {
+      addFileNameNode(position);
+    } else if (item.type === 'color') {
+      addColorNode(position);
     } else {
       addPatternNode(item, position);
     }
@@ -150,6 +208,38 @@
 
     // Add loadPattern to window for node button click handling
     window.loadPattern = loadPatternToEditor;
+
+    // Initialize canvas with default nodes
+    const initialNodes = [
+      {
+        id: 'node-1',
+        type: 'fileName',
+        position: { x: 100, y: 100 },
+        data: { 
+          id: 'node-1',
+          label: 'File Name',
+          fileName: 'crochet-pattern',
+          instructions: [{
+            type: 'fileName',
+            fileName: 'crochet-pattern'
+          }]
+        }
+      },
+      {
+        id: 'node-2',
+        type: 'export',
+        position: { x: 700, y: 700 },
+        data: { 
+          id: 'node-2',
+          label: 'Export Pattern',
+          instructions: []
+        }
+      }
+    ];
+
+    // Set initial nodes
+    $nodes = initialNodes;
+    nextNodeId = 3; // Set nextNodeId to 3 since we used 1 and 2
   });
 
   // Flow configuration
@@ -158,7 +248,9 @@
     nodeTypes: {
       pattern: PatternNode,
       text: TextNode,
-      export: ExportNode
+      export: ExportNode,
+      fileName: FileNameNode,
+      color: ColorNode
     },
     defaultEdgeOptions: {
       type: 'default',
@@ -199,7 +291,6 @@
         </div>
       {/each}
     </div>
-    <h2>Export Pattern</h2>
   </div>
 
   <div class="canvas-container" on:drop={handleDrop} on:dragover={(e) => e.preventDefault()}>

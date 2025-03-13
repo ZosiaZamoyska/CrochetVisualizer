@@ -2,40 +2,54 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export async function exportPatternToPDF(instructions) {
+  // Get filename from instructions if it exists
+  let fileName = 'crochet-pattern';
+  const fileNameInstruction = instructions.find(item => item.type === 'fileName');
+  if (fileNameInstruction) {
+    fileName = fileNameInstruction.fileName;
+  }
+
   const doc = new jsPDF();
   let startY = 20;
-  let currentY = [startY, startY]; // Separate Y positions for left and right columns
+  let currentY = [startY, startY];
+  let currentColumn = 0;
 
-  doc.setFontSize(20);
-  doc.text('Crochet Pattern', 20, startY);
-  currentY = [startY + 15, startY + 15]; // Update start after title
-
-  const patternsPerPage = 2;
-  const patterns = instructions.filter(item => item.type === 'pattern');
-  const totalPages = Math.ceil(patterns.length / patternsPerPage);
-
+  // Collect all image loading promises and their metadata first
+  const contentQueue = [];
   const imagePromises = [];
 
-  // First, handle pattern nodes
-  for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-    for (let colIndex = 0; colIndex < patternsPerPage; colIndex++) {
-      const patternIndex = pageIndex * patternsPerPage + colIndex;
-      if (patternIndex >= patterns.length) break;
+  doc.setFontSize(20);
+  contentQueue.push({
+    type: 'title',
+    fn: () => {
+      doc.text('Crochet Pattern', 20, startY);
+      currentY = [startY + 15, startY + 15];
+    }
+  });
 
-      const pattern = patterns[patternIndex];
-      const columnX = colIndex === 0 ? 20 : 110;
+  for (let i = 0; i < instructions.length; i++) {
+    const item = instructions[i];
+    const initialColumn = currentColumn; // Store current column state
 
-      // Add pattern name
-      doc.setFontSize(14);
-      doc.text(`${patternIndex + 1}. ${pattern.name}`, columnX, currentY[colIndex]);
-      currentY[colIndex] += 8;
-      doc.setFontSize(12);
+    if (item.type === 'pattern') {
+      // Queue pattern name
+      contentQueue.push({
+        type: 'name',
+        column: initialColumn,
+        fn: () => {
+          const columnX = initialColumn === 0 ? 20 : 110;
+          doc.setFontSize(14);
+          doc.text(item.name, columnX, currentY[initialColumn]);
+          currentY[initialColumn] += 8;
+          doc.setFontSize(12);
+        }
+      });
 
-      // Handle image loading as Promise
-      if (pattern.preview) {
+      // Handle pattern preview image
+      if (item.preview) {
         const imagePromise = new Promise((resolve) => {
           const img = new Image();
-          img.src = pattern.preview;
+          img.src = item.preview;
 
           img.onload = function () {
             const imgNaturalWidth = img.naturalWidth;
@@ -51,74 +65,135 @@ export async function exportPatternToPDF(instructions) {
               imgHeight *= scale;
             }
 
-            // Add image to PDF
-            doc.addImage(img.src, 'PNG', columnX, currentY[colIndex], imgWidth, imgHeight);
-            currentY[colIndex] += imgHeight + 5; // Move down after image
-
-            resolve();
+            resolve({
+              src: img.src,
+              width: imgWidth,
+              height: imgHeight,
+              column: initialColumn,
+              x: initialColumn === 0 ? 20 : 110
+            });
           };
 
           img.onerror = function () {
             console.error('Failed to load image');
-            currentY[colIndex] += 5;
-            resolve();
+            resolve(null);
           };
         });
 
         imagePromises.push(imagePromise);
-      }
-
-      // Add pattern instructions
-      if (pattern.formattedPattern) {
-        const maxWidth = 80;
-        const patternLines = pattern.formattedPattern.split('\n');
-        patternLines.forEach(line => {
-          const splitLines = doc.splitTextToSize(line, maxWidth);
-          doc.text(splitLines, columnX, currentY[colIndex]);
-          currentY[colIndex] += splitLines.length * 7;
+        contentQueue.push({
+          type: 'image',
+          column: initialColumn,
+          fn: async (imageData) => {
+            if (imageData) {
+              if (currentY[imageData.column] + imageData.height > 270) {
+                if (currentColumn === 0) {
+                  currentColumn = 1;
+                  currentY[1] = startY;
+                } else {
+                  currentColumn = 0;
+                  doc.addPage();
+                  currentY = [startY, startY];
+                }
+              }
+              doc.addImage(imageData.src, 'PNG', imageData.x, currentY[imageData.column], imageData.width, imageData.height);
+              currentY[imageData.column] += imageData.height + 5;
+            }
+          }
         });
       }
 
-      // Add spacing between patterns
-      currentY[colIndex] += 5;
+      // Queue pattern instructions
+      contentQueue.push({
+        type: 'pattern',
+        column: initialColumn,
+        fn: () => {
+          const columnX = initialColumn === 0 ? 20 : 110;
+          const maxWidth = 80;
+          const patternLines = item.formattedPattern.split('\n');
+          patternLines.forEach(line => {
+            const splitLines = doc.splitTextToSize(line, maxWidth);
+            doc.text(splitLines, columnX, currentY[initialColumn]);
+            currentY[initialColumn] += splitLines.length * 7;
+          });
+        }
+      });
+
+      // Add spacing and move to next column/page
+      contentQueue.push({
+        type: 'spacing',
+        fn: () => {
+          currentY[currentColumn] += 5;
+          if (currentColumn === 0) {
+            currentColumn = 1;
+          } else {
+            currentColumn = 0;
+            doc.addPage();
+            currentY = [startY, startY];
+          }
+        }
+      });
+
+    } else if (item.type === 'text') {
+      contentQueue.push({
+        type: 'text',
+        column: initialColumn,
+        fn: () => {
+          const columnX = initialColumn === 0 ? 20 : 110;
+          const maxWidth = 80;
+          const splitText = doc.splitTextToSize(item.content, maxWidth);
+          const textHeight = splitText.length * 7 + 5;
+
+          if (currentY[initialColumn] + textHeight > 270) {
+            if (currentColumn === 0) {
+              currentColumn = 1;
+              currentY[1] = startY;
+            } else {
+              currentColumn = 0;
+              doc.addPage();
+              currentY = [startY, startY];
+            }
+          }
+
+          doc.text(splitText, columnX, currentY[initialColumn]);
+          currentY[initialColumn] += textHeight;
+        }
+      });
+    } else if (item.type === 'color') {
+      contentQueue.push({
+        type: 'color',
+        column: initialColumn,
+        fn: () => {
+          const columnX = initialColumn === 0 ? 20 : 110;
+          const maxWidth = 80;
+          
+          // Add color name in the selected color
+          doc.setTextColor(item.color);
+          const splitText = doc.splitTextToSize(`Yarn color: ${item.colorName}`, maxWidth);
+          doc.text(splitText, columnX, currentY[initialColumn]);
+          
+          // Reset text color to black
+          doc.setTextColor('#000000');
+          
+          currentY[initialColumn] += splitText.length * 7 + 5;
+        }
+      });
     }
-
-    // Add new page if necessary
-    if (pageIndex < totalPages - 1) {
-      doc.addPage();
-      currentY = [startY, startY]; // Reset for new page
-    }
-  }
-
-  // Add text instructions section on new page
-  const textInstructions = instructions.filter(item => item.type === 'text');
-  if (textInstructions.length > 0) {
-    doc.addPage();
-    let instructionsY = 20;
-
-    doc.setFontSize(16);
-    doc.text('Additional Instructions', 20, instructionsY);
-    instructionsY += 10;
-    doc.setFontSize(12);
-
-    // Process all text instructions in sequence
-    textInstructions.forEach((instruction, index) => {
-      // Check if we need a new page
-      if (instructionsY > 270) {
-        doc.addPage();
-        instructionsY = 20;
-      }
-
-      // Split instruction text into lines
-      const splitInstruction = doc.splitTextToSize(`${index + 1}. ${instruction.content}`, 170);
-      doc.text(splitInstruction, 20, instructionsY);
-      instructionsY += splitInstruction.length * 7;
-    });
   }
 
   // Wait for all images to load
-  await Promise.all(imagePromises);
+  const imageResults = await Promise.all(imagePromises);
+
+  // Generate PDF content
+  let imageIndex = 0;
+  for (const item of contentQueue) {
+    if (item.fn.length > 0) { // If function expects parameter (image data)
+      await item.fn(imageResults[imageIndex++]);
+    } else {
+      item.fn();
+    }
+  }
 
   // Save PDF
-  doc.save('crochet-pattern.pdf');
+  doc.save(`${fileName}.pdf`);
 }

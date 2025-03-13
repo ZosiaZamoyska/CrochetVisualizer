@@ -47,7 +47,6 @@
       <div class="no-preview">No preview</div>
     {/if}
     <div class="pattern-name">{data.label}</div>
-    <div>{data.instructions}</div>
   </div>
 
   <Handle type="source" position={Position.Right} />
