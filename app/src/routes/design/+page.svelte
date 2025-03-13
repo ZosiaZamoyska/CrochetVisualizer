@@ -18,6 +18,8 @@
 
   // Function to add a new pattern node to the canvas
   function addPatternNode(pattern, position) {
+    console.log('pattern', pattern);
+    console.log('grid', pattern.grid);
     const newNode = {
       id: `node-${nextNodeId}`,
       type: 'pattern',

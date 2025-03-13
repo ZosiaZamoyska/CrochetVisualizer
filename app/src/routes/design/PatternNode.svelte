@@ -1,8 +1,11 @@
 <script>
+  import { Handle, Position } from '@xyflow/svelte';
   export let data;
 </script>
 
 <div class="custom-node">
+  <Handle type="target" position={Position.Left} />
+
   <div class="preview-container">
     {#if data.image}
       <img src={data.image} alt={data.label} />
@@ -10,6 +13,8 @@
       <div class="no-preview">No preview</div>
     {/if}
   </div>
+  <Handle type="source" position={Position.Right} />
+
 </div>
 
 <style>
@@ -22,6 +27,7 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    position: relative;
   }
   .preview-container {
     width: 120px;
@@ -56,5 +62,15 @@
   .no-preview {
     color: #666;
     font-size: 12px;
+  }
+
+  :global(.svelte-flow__handle) {
+    width: 8px;
+    height: 8px;
+    background: var(--primary-color);
+  }
+
+  :global(.svelte-flow__handle:hover) {
+    background: var(--primary-color-dark);
   }
 </style> 

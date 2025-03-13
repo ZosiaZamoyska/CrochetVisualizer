@@ -70,6 +70,7 @@
       const trimmedInput = patternInput.trim();
       parsePattern(trimmedInput);
       formattedPattern = formatPattern();
+      console.log('formattedPattern', formattedPattern);
     }
   }
   
@@ -265,61 +266,117 @@
 
   function formatPattern() {
     if (!grid || grid.length === 0) return "";
-    
-    return grid.map((row, rowIndex) => {
-      // Filter out null values
-      const validStitches = row.filter(stitch => stitch !== null);
-      
-      // For odd rows (1-based), reverse the order
-      if (rowIndex % 2 === 1) {
-        validStitches.reverse();
-      }
-      
-      // Find repeating patterns
-      let condensedRow = [];
-      let i = 0;
-      
-      while (i < validStitches.length) {
-        // Try to find the longest repeating pattern starting at position i
-        let maxPatternLength = 1;
-        let maxRepetitions = 1;
-        
-        // Try patterns of increasing length
-        for (let patternLength = 1; patternLength <= Math.floor((validStitches.length - i) / 2); patternLength++) {
-          const pattern = validStitches.slice(i, i + patternLength);
-          let repetitions = 1;
-          
-          // Check if this pattern repeats
-          for (let j = i + patternLength; j <= validStitches.length - patternLength; j += patternLength) {
-            const nextPattern = validStitches.slice(j, j + patternLength);
-            if (pattern.every((stitch, idx) => stitch === nextPattern[idx])) {
-              repetitions++;
-            } else {
-              break;
+
+    // Holds the formatted rows to process and merge
+    const formattedRows = grid.map((row, rowIndex) => {
+        // Handle foundation chain separately
+        if (rowIndex === 0) {
+            const chainCount = row.filter(stitch => stitch === "ch").length;
+            return `ch ${chainCount}, turn.`;
+        }
+
+        // Remove nulls for pattern detection
+        let validStitches = row.filter(stitch => stitch !== null);
+
+        // Reverse for odd rows to simulate turning
+        const isOddRow = rowIndex % 2 === 1;
+        if (isOddRow) {
+            validStitches.reverse();
+        }
+
+        // Find repeating patterns
+        let condensedRow = [];
+        let i = 0;
+
+        while (i < validStitches.length) {
+            let maxPatternLength = 1;
+            let maxRepetitions = 1;
+
+            // Check for longest repeating pattern
+            for (let patternLength = 1; patternLength <= Math.floor((validStitches.length - i) / 2); patternLength++) {
+                const pattern = validStitches.slice(i, i + patternLength);
+                let repetitions = 1;
+
+                for (let j = i + patternLength; j <= validStitches.length - patternLength; j += patternLength) {
+                    const nextPattern = validStitches.slice(j, j + patternLength);
+                    if (pattern.every((stitch, idx) => stitch === nextPattern[idx])) {
+                        repetitions++;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (repetitions > maxRepetitions) {
+                    maxRepetitions = repetitions;
+                    maxPatternLength = patternLength;
+                }
             }
-          }
-          
-          if (repetitions > maxRepetitions) {
-            maxRepetitions = repetitions;
-            maxPatternLength = patternLength;
-          }
+
+            // Add pattern or single stitch
+            if (maxRepetitions > 1) {
+                const pattern = validStitches.slice(i, i + maxPatternLength);
+                condensedRow.push(`(${pattern.join(", ")}) x${maxRepetitions}`);
+                i += maxPatternLength * maxRepetitions;
+            } else {
+                condensedRow.push(validStitches[i]);
+                i++;
+            }
         }
-        
-        // If we found a repeating pattern
-        if (maxRepetitions > 1) {
-          const pattern = validStitches.slice(i, i + maxPatternLength);
-          condensedRow.push(`${maxRepetitions}x(${pattern.join(" ")})`);
-          i += maxPatternLength * maxRepetitions;
+
+        // Add skip if there were nulls
+        const skipCount = row.filter(stitch => stitch === null).length;
+        if (skipCount > 1) {
+            condensedRow.push(`skip ${skipCount}`);
+        }
+
+        // Add turn at the end
+        condensedRow.push('turn.');
+
+        // Return formatted row with pattern
+        return condensedRow.join(", ");
+    });
+
+    // === Now we merge consecutive rows with the same pattern ===
+    let mergedRows = [];
+    for (let i = 0; i < formattedRows.length; i++) {
+        const currentRow = formattedRows[i];
+        let rangeStart = i;
+        let rangeEnd = i;
+
+        // Look ahead for consecutive rows with identical patterns
+        while (rangeEnd < formattedRows.length - 1 && formattedRows[rangeEnd] === formattedRows[rangeEnd + 1]) {
+            rangeEnd++;
+        }
+
+        // If the range is more than one row, merge into a range
+        if (rangeStart === rangeEnd) {
+            mergedRows.push(`Row ${rangeStart}: ${currentRow}`);
         } else {
-          // No repeating pattern found, just add the current stitch
-          condensedRow.push(validStitches[i]);
-          i++;
+            mergedRows.push(`Row ${rangeStart + 1}-${rangeEnd + 1}: ${currentRow}`);
         }
-      }
-      
-      return condensedRow.join(", ");
-    }).join("\n");
-  }
+
+        // Skip the merged rows
+        i = rangeEnd;
+    }
+
+    // Return the final formatted pattern
+    return mergedRows.join("\n");
+}
+
+
+
+
+// Helper to expand short stitch names
+function expandStitchName(shortName) {
+    const stitchNames = {
+        "ch": "chain (ch)",
+        "sc": "single crochet (sc)",
+        "dc": "double crochet (dc)",
+        // Add more stitch types as needed
+    };
+    return stitchNames[shortName] || shortName; // fallback to shortName if unknown
+}
+
 
   function addNewStitch() {
     if (newStitchName.trim()) {
@@ -404,6 +461,7 @@
       pattern: patternInput,
       timestamp: new Date().toISOString(),
       preview: previewImage,
+      grid: grid,
       colors: {
         ch: chColor,
         sc: scColor,
