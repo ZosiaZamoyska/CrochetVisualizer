@@ -10,11 +10,25 @@
   import '@xyflow/svelte/dist/style.css';
   import { patternToLoad } from '$lib/store';
   import PatternNode from './PatternNode.svelte';
-
+  import TextNode from './TextNode.svelte';
+  import ExportNode from './ExportNode.svelte';
   let savedPatterns = [];
   const nodes = writable([]);
   const edges = writable([]);
   let nextNodeId = 1;
+
+  const instructions = [
+    {
+      id: 'text-box',
+      name: 'Text Box',
+      type: 'text'
+    },
+    {
+      id: 'export-button',
+      name: 'Export Button',
+      type: 'export'  
+    }
+  ];
 
   // Function to add a new pattern node to the canvas
   function addPatternNode(pattern, position) {
@@ -36,20 +50,58 @@
     $nodes = [...$nodes, newNode];
   }
 
+  // Function to add a new text box node to the canvas
+  function addTextNode(position) {
+    const newNode = {
+      id: `node-${nextNodeId}`,
+      type: 'text',
+      position,
+      data: { 
+        id: `node-${nextNodeId}`,
+        label: 'Text Box',
+        text: 'Double click to edit'
+      }
+    };
+    
+    nextNodeId++;
+    $nodes = [...$nodes, newNode];
+  }
+  function addExportNode(position) {
+    const newNode = {
+      id: `node-${nextNodeId}`,
+      type: 'export',
+      position,
+      data: { 
+        id: `node-${nextNodeId}`,
+        label: 'Export Pattern'
+      }
+    };
+    
+    nextNodeId++;
+    $nodes = [...$nodes, newNode];
+  }
+
   // Handle drag and drop from pattern menu
-  function handleDragStart(event, pattern) {
-    event.dataTransfer.setData('pattern', JSON.stringify(pattern));
+  function handleDragStart(event, item) {
+    event.dataTransfer.setData('item', JSON.stringify(item));
   }
 
   function handleDrop(event) {
     event.preventDefault();
-    const pattern = JSON.parse(event.dataTransfer.getData('pattern'));
+    const item = JSON.parse(event.dataTransfer.getData('item'));
     const bounds = event.target.getBoundingClientRect();
     const position = {
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top
     };
-    addPatternNode(pattern, position);
+
+    if (item.type === 'text') {
+      addTextNode(position);
+    } else if (item.type === 'export') {
+      addExportNode(position);
+    } else {
+      addPatternNode(item, position);
+    }
   }
 
   // Load pattern into the main editor
@@ -75,7 +127,9 @@
   const flowConfig = {
     fitView: true,
     nodeTypes: {
-      pattern: PatternNode
+      pattern: PatternNode,
+      text: TextNode,
+      export: ExportNode
     }
   };
 </script>
@@ -99,6 +153,20 @@
         </div>
       {/each}
     </div>
+
+    <h2>Instructions</h2>
+    <div class="instruction-list">
+      {#each instructions as instruction}
+        <div 
+          class="instruction-item"
+          draggable="true"
+          on:dragstart={(e) => handleDragStart(e, instruction)}
+        >
+          <span>{instruction.name}</span>
+        </div>
+      {/each}
+    </div>
+    <h2>Export Pattern</h2>
   </div>
 
   <div class="canvas-container" on:drop={handleDrop} on:dragover={(e) => e.preventDefault()}>
@@ -177,5 +245,27 @@
     background: #f0f0f0;
     color: #666;
     font-size: 0.8rem;
+  }
+
+  .instruction-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .instruction-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: move;
+    transition: background-color 0.2s;
+  }
+
+  .instruction-item:hover {
+    background: #f0f0f0;
   }
 </style>

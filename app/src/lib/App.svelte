@@ -272,7 +272,7 @@
         // Handle foundation chain separately
         if (rowIndex === 0) {
             const chainCount = row.filter(stitch => stitch === "ch").length;
-            return `ch ${chainCount}, turn.`;
+            return `Row 0: ch ${chainCount}, turn.`;
         }
 
         // Remove nulls for pattern detection
@@ -337,8 +337,14 @@
     });
 
     // === Now we merge consecutive rows with the same pattern ===
+    // === Now we merge consecutive rows with the same pattern ===
     let mergedRows = [];
-    for (let i = 0; i < formattedRows.length; i++) {
+
+    // Handle foundation separately
+    mergedRows.push(formattedRows[0]); // Row 0 (Foundation)
+
+    // Process remaining rows starting from index 1
+    for (let i = 1; i < formattedRows.length; i++) {
         const currentRow = formattedRows[i];
         let rangeStart = i;
         let rangeEnd = i;
@@ -352,12 +358,13 @@
         if (rangeStart === rangeEnd) {
             mergedRows.push(`Row ${rangeStart}: ${currentRow}`);
         } else {
-            mergedRows.push(`Row ${rangeStart + 1}-${rangeEnd + 1}: ${currentRow}`);
+            mergedRows.push(`Row ${rangeStart}-${rangeEnd}: ${currentRow}`);
         }
 
-        // Skip the merged rows
+        // Skip merged rows
         i = rangeEnd;
     }
+
 
     // Return the final formatted pattern
     return mergedRows.join("\n");
@@ -461,6 +468,7 @@ function expandStitchName(shortName) {
       pattern: patternInput,
       timestamp: new Date().toISOString(),
       preview: previewImage,
+      formattedPattern: formattedPattern,
       grid: grid,
       colors: {
         ch: chColor,
@@ -877,6 +885,7 @@ function expandStitchName(shortName) {
                 if (selectedNodes && selectedNodes.length > 0) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.deleteSelectedNodes(selectedNodes);
+                    formattedPattern = formatPattern(patternInput);
                     redrawCanvas();
                 }
             }
