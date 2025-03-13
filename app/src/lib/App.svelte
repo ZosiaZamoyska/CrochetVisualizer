@@ -209,24 +209,57 @@
 
   function saveChart() {
     if (p5Instance) {
-      // Get the canvas element
       const canvas = document.querySelector('#p5Canvas canvas');
-      if (canvas) {
-        // Create a temporary link element
-        const link = document.createElement('a');
-        link.download = 'crochet-pattern.png';
-        
-        // Convert canvas to data URL
-        const dataURL = canvas.toDataURL('image/png');
-        
-        // Set the link's href to the data URL
-        link.href = dataURL;
-        
-        // Trigger the download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const ctx = canvas.getContext('2d');
+
+      // Get canvas data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+
+      let minX = canvas.width, minY = canvas.height;
+      let maxX = 0, maxY = 0;
+      let hasDrawing = false;
+
+      // Find bounding box of non-transparent pixels
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const i = (y * canvas.width + x) * 4;
+          const alpha = pixels[i + 3]; // alpha channel
+          if (alpha !== 0) { // Non-transparent pixel
+            hasDrawing = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
       }
+
+      if (!hasDrawing) {
+        alert("Nothing to save — canvas is empty!");
+        return;
+      }
+
+      // Calculate width and height of cropped area
+      const width = maxX - minX + 1;
+      const height = maxY - minY + 1;
+
+      // Create temp canvas to store cropped image
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      // Draw cropped image onto temp canvas
+      tempCtx.putImageData(ctx.getImageData(minX, minY, width, height), 0, 0);
+
+      // Save the cropped canvas
+      const link = document.createElement('a');
+      link.download = 'crochet-pattern-cropped.png';
+      link.href = tempCanvas.toDataURL('image/png');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   }
 
@@ -313,13 +346,57 @@
       return;
     }
 
-    // Get the canvas preview
+    // Get the canvas
     const canvas = document.querySelector('#p5Canvas canvas');
     let previewImage = null;
+
     if (canvas) {
-      previewImage = canvas.toDataURL('image/png');
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imageData.data;
+
+      let minX = canvas.width, minY = canvas.height;
+      let maxX = 0, maxY = 0;
+      let hasDrawing = false;
+
+      // Detect the drawn (non-transparent) area
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const i = (y * canvas.width + x) * 4;
+          const alpha = pixels[i + 3]; // alpha channel
+          if (alpha !== 0) { // Non-transparent pixel
+            hasDrawing = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      // If something is drawn, create cropped image
+      if (hasDrawing) {
+        const width = maxX - minX + 1;
+        const height = maxY - minY + 1;
+
+        // Temporary canvas to hold cropped image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Copy cropped area into temp canvas
+        tempCtx.putImageData(ctx.getImageData(minX, minY, width, height), 0, 0);
+
+        // Convert to image URL
+        previewImage = tempCanvas.toDataURL('image/png');
+      } else {
+        // If nothing drawn, fallback to full canvas
+        previewImage = canvas.toDataURL('image/png');
+      }
     }
 
+    // Prepare pattern data with preview image (cropped)
     const patternData = {
       id: Date.now(),
       name: newPatternName.trim(),
@@ -344,7 +421,7 @@
     savedPatterns = [...savedPatterns, patternData];
     localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
 
-    // Also save as file
+    // Also save as JSON file
     const blob = new Blob([JSON.stringify(patternData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -360,6 +437,7 @@
     newPatternNotes = "";
     showSavePatternDialog = false;
   }
+
 
   function loadPattern(pattern) {
     console.log('Loading pattern:', pattern); // Debugging line

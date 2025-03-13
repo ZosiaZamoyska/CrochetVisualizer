@@ -21,6 +21,13 @@
     >
       My Patterns
     </a>
+    <a 
+      href="/design" 
+      class="nav-link" 
+      class:active={$page.url.pathname === '/design'}
+    >
+      Design
+    </a>
     <span class="tooltip-container">
       &#63;
       <span class="tooltip"><img src="data/Chart-Symbol.jpg" alt="Help" style="width: 250px;" />

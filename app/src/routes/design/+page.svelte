@@ -1,205 +1,179 @@
 <script>
   import { onMount } from 'svelte';
-  import '$lib/App.css';
-  import ShapeLibrary from '$lib/components/ShapeLibrary.svelte';
-  import { PATTERNS, SHAPE_TYPES, getRandomPosition, alignShapes } from '$lib/shapes';
+  import { writable } from 'svelte/store';
+  import {
+    SvelteFlow,
+    Background,
+    Controls,
+    MiniMap
+  } from '@xyflow/svelte';
+  import '@xyflow/svelte/dist/style.css';
   import { patternToLoad } from '$lib/store';
+  import PatternNode from './PatternNode.svelte';
 
-  let shapes = [];
-  let connections = [];
-  let selectedEdge = null;
-  let selectedShape = null;
-  let isEdgeSelectionMode = false;
-  let connectionStep = 0; // 0: not connecting, 1: selecting first edge, 2: selecting second edge
-  // let patternToLoad = null;
+  let savedPatterns = [];
+  const nodes = writable([]);
+  const edges = writable([]);
+  let nextNodeId = 1;
 
-  function handleShapeSelect(pattern) {
-    const position = getRandomPosition(document.querySelector('.canvas-container'));
-    const { geometry, edges } = pattern.createGeometry();
-    
-    const shape = {
-      id: Date.now(),
-      type: pattern.type,
-      position: position,
-      geometry: geometry,
-      edges: edges,
-      fill: pattern.type === SHAPE_TYPES.SQUARE ? '#00ff00' : 
-            pattern.type === SHAPE_TYPES.HEXAGON ? '#ff0000' : '#0000ff'
-    };
-
-    shapes = [...shapes, shape];
-  }
-
-  function handleShapeDrag(shape) {
-    shapes = shapes.map(s => s.id === shape.id ? shape : s);
-  }
-
-  function handleEdgeSelect(shape, edge) {
-    if (!isEdgeSelectionMode || connectionStep === 0) return;
-
-    console.log('Edge selection:', { step: connectionStep, shapeId: shape.id, edgeId: edge.id });
-
-    if (connectionStep === 1) {
-      // First edge selection
-      selectedEdge = { shape, edge };
-      selectedShape = shape;
-      connectionStep = 2;
-      console.log('First edge selected, waiting for second edge');
-    } else if (connectionStep === 2) {
-      if (selectedShape.id === shape.id) {
-        // Same shape selected - ignore
-        console.log('Same shape selected, ignoring');
-        return;
+  // Function to add a new pattern node to the canvas
+  function addPatternNode(pattern, position) {
+    const newNode = {
+      id: `node-${nextNodeId}`,
+      type: 'pattern',
+      position,
+      data: { 
+        id: `node-${nextNodeId}`,
+        label: pattern.name,
+        image: pattern.preview,
+        pattern // Store the full pattern object for loading
       }
-      
-      // Second edge selection - different shape
-      console.log('Second edge selected, connecting shapes');
-      const alignedShape = alignShapes(selectedShape, selectedEdge.edge, shape, edge);
-      shapes = shapes.map(s => s.id === alignedShape.id ? alignedShape : s);
+    };
+    
+    nextNodeId++;
+    $nodes = [...$nodes, newNode];
+  }
 
-      connections = [...connections, {
-        id: Date.now(),
-        edge1: selectedEdge,
-        edge2: { shape, edge }
-      }];
-      
-      // Reset connection state
-      selectedEdge = null;
-      selectedShape = null;
-      connectionStep = 0;
-      isEdgeSelectionMode = false;
+  // Handle drag and drop from pattern menu
+  function handleDragStart(event, pattern) {
+    event.dataTransfer.setData('pattern', JSON.stringify(pattern));
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    const pattern = JSON.parse(event.dataTransfer.getData('pattern'));
+    const bounds = event.target.getBoundingClientRect();
+    const position = {
+      x: event.clientX - bounds.left,
+      y: event.clientY - bounds.top
+    };
+    addPatternNode(pattern, position);
+  }
+
+  // Load pattern into the main editor
+  function loadPatternToEditor(nodeId) {
+    const node = $nodes.find(n => n.id === nodeId);
+    if (node) {
+      patternToLoad.set(node.data.pattern);
     }
   }
 
-  function startEdgeConnection() {
-    isEdgeSelectionMode = true;
-    connectionStep = 1;
-    selectedEdge = null;
-    selectedShape = null;
-    console.log('Starting edge connection');
-  }
+  onMount(() => {
+    // Load saved patterns from localStorage
+    const saved = localStorage.getItem('savedPatterns');
+    if (saved) {
+      savedPatterns = JSON.parse(saved);
+    }
 
-  function cancelEdgeConnection() {
-    isEdgeSelectionMode = false;
-    connectionStep = 0;
-    selectedEdge = null;
-    selectedShape = null;
-    console.log('Cancelled edge connection');
-  }
+    // Add loadPattern to window for node button click handling
+    window.loadPattern = loadPatternToEditor;
+  });
 
-  $: connectionStatus = connectionStep === 0 ? '' :
-                       connectionStep === 1 ? 'Select first edge' :
-                       'Select second edge';
-
-
-  // onMount(() => {
-  //     const loadedPattern = localStorage.getItem('patternToLoad');
-  //     if (loadedPattern) {
-  //         patternToLoad = JSON.parse(loadedPattern);
-  //         console.log('Loaded pattern for design:', patternToLoad); // Debugging line
-  //         loadPattern(patternToLoad); // Call loadPattern with the loaded pattern
-  //     } else {
-  //         console.log('No pattern to load from local storage.');
-  //     }
-  // });
+  // Flow configuration
+  const flowConfig = {
+    fitView: true,
+    nodeTypes: {
+      pattern: PatternNode
+    }
+  };
 </script>
 
-<div class="container">
-  <div class="left-panel">
-    <ShapeLibrary onShapeSelect={handleShapeSelect} />
-  </div>
-  
-  <div class="main-content">
-    <Canvas
-      {shapes}
-      {connections}
-      {isEdgeSelectionMode}
-      {selectedEdge}
-      onShapeDrag={handleShapeDrag}
-      onEdgeSelect={handleEdgeSelect}
-    />
-    
-    <div class="controls">
-      {#if connectionStep === 0}
-        <button 
-          class="connect-button"
-          on:click={startEdgeConnection}
+<div class="design-container">
+  <div class="pattern-menu">
+    <h2>Pattern Library</h2>
+    <div class="pattern-list">
+      {#each savedPatterns as pattern}
+        <div 
+          class="pattern-item"
+          draggable="true"
+          on:dragstart={(e) => handleDragStart(e, pattern)}
         >
-          Connect Edges
-        </button>
-      {:else}
-        <div class="connection-status">
-          <span class="status-text">{connectionStatus}</span>
-          <button 
-            class="cancel-button"
-            on:click={cancelEdgeConnection}
-          >
-            Cancel
-          </button>
+          {#if pattern.preview}
+            <img src={pattern.preview} alt={pattern.name} />
+          {:else}
+            <div class="no-preview">No preview</div>
+          {/if}
+          <span>{pattern.name}</span>
         </div>
-      {/if}
+      {/each}
     </div>
+  </div>
+
+  <div class="canvas-container" on:drop={handleDrop} on:dragover={(e) => e.preventDefault()}>
+    <SvelteFlow {nodes} {edges} {...flowConfig}>
+      <Background />
+      <Controls />
+      <MiniMap />
+    </SvelteFlow>
   </div>
 </div>
 
 <style>
-  .container {
+  .design-container {
     display: flex;
-    gap: 20px;
-    padding: 20px;
+    width: 100%;
     height: 100vh;
   }
 
-  .left-panel {
+  .pattern-menu {
     width: 250px;
+    background: #f5f5f5;
+    border-right: 1px solid #ddd;
+    padding: 1rem;
+    overflow-y: auto;
   }
 
-  .main-content {
-    flex: 1;
+  .pattern-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1rem;
   }
 
-  .controls {
-    display: flex;
-    justify-content: center;
-    padding: 10px;
-  }
-
-  .connection-status {
+  .pattern-item {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: move;
+    transition: background-color 0.2s;
   }
 
-  .status-text {
-    font-size: 1.1em;
-    color: var(--text-primary);
+  .pattern-item:hover {
+    background: #f0f0f0;
   }
 
-  button {
-    padding: 8px 16px;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+  .pattern-item img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
   }
 
-  button:hover {
-    background-color: var(--bg-hover);
+  .canvas-container {
+    flex: 1;
+    height: 100%;
+    background: #fafafa;
   }
 
-  .connect-button {
-    background-color: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
+  :global(.svelte-flow) {
+    height: 100%;
   }
 
-  .cancel-button {
-    background-color: var(--error-color, #ff4444);
-    color: white;
-    border-color: var(--error-color, #ff4444);
+  :global(.svelte-flow__node) {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  .no-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: #f0f0f0;
+    color: #666;
+    font-size: 0.8rem;
   }
 </style>
