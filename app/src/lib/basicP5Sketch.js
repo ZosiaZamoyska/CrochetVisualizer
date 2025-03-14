@@ -234,22 +234,41 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         const selectedNodes = selectionHandler ? selectionHandler.getSelectedNodes() : [];
         const isSelected = selectedNodes.includes(position);
         p5.noStroke();
+        
         // Set fill color based on selection and stitch type
         if (isSelected) {
             p5.fill(30, 30, 30, 200); // Highlight selected nodes
         } else {
-            if (position.stitch === 'ch') {
-                p5.fill(chColor);
-            } else if (position.stitch === 'sc') {
-                p5.fill(scColor);
-            } else if (position.stitch === 'dc') {
-                p5.fill(dcColor);
+            // Find the position of this node in the grid
+            let nodeRowCol = null;
+            for (let rowIndex = 0; rowIndex < positions_null.length; rowIndex++) {
+                for (let colIndex = 0; colIndex < positions_null[rowIndex].length; colIndex++) {
+                    if (positions_null[rowIndex][colIndex] === position) {
+                        nodeRowCol = `${rowIndex}-${colIndex}`;
+                        break;
+                    }
+                }
+                if (nodeRowCol) break;
+            }
+            
+            // Check if this specific node has a custom color in the colorMap
+            if (nodeRowCol && grid.colorMap && grid.colorMap[nodeRowCol]) {
+                p5.fill(grid.colorMap[nodeRowCol]);
             } else {
-                const customStitch = customStitches.find(s => s.name === position.stitch);
-                if (customStitch) {
-                    p5.fill(customStitch.color);
+                // Use default color based on stitch type
+                if (position.stitch === 'ch') {
+                    p5.fill(chColor);
+                } else if (position.stitch === 'sc') {
+                    p5.fill(scColor);
+                } else if (position.stitch === 'dc') {
+                    p5.fill(dcColor);
                 } else {
-                    p5.fill(180);
+                    const customStitch = customStitches.find(s => s.name === position.stitch);
+                    if (customStitch) {
+                        p5.fill(customStitch.color);
+                    } else {
+                        p5.fill(180);
+                    }
                 }
             }
         }
@@ -262,7 +281,9 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
         p5.ellipse(position.x, position.y, 30, 30);
         p5.noStroke();
         p5.fill(255);
-        p5.text(position.stitch, position.x, position.y);
+        // Display only the stitch type (without color code)
+        const displayStitch = position.stitch.includes('_') ? position.stitch.split('_')[0] : position.stitch;
+        p5.text(displayStitch, position.x, position.y);
     }
     function deleteSelectedNodes(nodes) {
         if (!nodes || nodes.length === 0) {
@@ -352,6 +373,56 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
     p5.deleteSelectedNodes = deleteSelectedNodes;
     p5.duplicateSelectedNodes = duplicateSelectedNodes;
     p5.changeStitchType = changeStitchType;
+
+    // Add this function to handle changing node colors
+    p5.changeNodeColor = function(nodes, color) {
+        if (!nodes || nodes.length === 0) return;
+        
+        // Initialize colorMap if it doesn't exist
+        if (!grid.colorMap) {
+            grid.colorMap = {};
+        }
+        
+        // Apply the color to each selected node
+        nodes.forEach(node => {
+            // Find the position of this node in the grid
+            for (let rowIndex = 0; rowIndex < positions_null.length; rowIndex++) {
+                for (let colIndex = 0; colIndex < positions_null[rowIndex].length; colIndex++) {
+                    if (positions_null[rowIndex][colIndex] === node) {
+                        // Store the color in the colorMap using the position as the key
+                        grid.colorMap[`${rowIndex}-${colIndex}`] = color;
+                        
+                        // Also update the node's customColor property for immediate visual feedback
+                        node.customColor = color;
+                    }
+                }
+            }
+        });
+        
+        // Redraw the canvas
+        p5.redraw();
+    };
+
+    // Add this function to get the color for a specific node
+    p5.getNodeColor = function(row, col, stitchType) {
+        // Check if this node has a custom color
+        if (grid.colorMap && grid.colorMap[`${row}-${col}`]) {
+            return grid.colorMap[`${row}-${col}`];
+        }
+        
+        // Otherwise return the default color for this stitch type
+        switch (stitchType) {
+            case 'ch':
+                return chColor;
+            case 'sc':
+                return scColor;
+            case 'dc':
+                return dcColor;
+            default:
+                const customStitch = customStitches.find(s => s.name === stitchType);
+                return customStitch ? customStitch.color : '#000000';
+        }
+    };
 
     return p5;
 }

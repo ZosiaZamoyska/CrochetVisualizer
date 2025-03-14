@@ -108,12 +108,12 @@
 
   // Predefined crochet patterns
   const patterns = {
-    "Basic Chain": "ch ch ch ch ch ch ch ch",
-    "Single Crochet Row": "ch ch ch ch ch ch ch ch sc sc sc sc sc sc sc",
-    "Normal Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc sc sc sc sc ch sc sc sc sc sc ch sc sc sc sc sc",
-    "Exaggerated Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc",
-    "Up-Down Wave": "ch ch ch ch ch ch sc dc sc dc sc ch dc sc dc sc dc ch sc dc sc dc sc ch dc sc dc sc dc",
-    "Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc",
+    "Flat - Basic Chain": "ch ch ch ch ch ch ch ch",
+    "Flat - Single Crochet Row": "ch ch ch ch ch ch ch ch sc sc sc sc sc sc sc",
+    "Flat - Normal Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc sc sc sc sc ch sc sc sc sc sc ch sc sc sc sc sc",
+    "Flat - Exaggerated Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc",
+    "Flat - Up-Down Wave": "ch ch ch ch ch ch sc dc sc dc sc ch dc sc dc sc dc ch sc dc sc dc sc ch dc sc dc sc dc",
+    "Flat - Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc",
     "Round - Basic Circle": "ch ch ch ch ch ch sc sc sc sc sc",
     "Round - Increasing Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc sc",
     "Round - Two Round Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc ch sc sc sc sc sc sc sc sc sc sc sc"
@@ -125,6 +125,9 @@
     
     // Automatically switch to round view for round patterns
     const selectedPattern = event.target.options[event.target.selectedIndex].text;
+    if (selectedPattern.startsWith("Flat -")) {
+      crochetType = 'flat';
+    }
     if (selectedPattern.startsWith("Round -")) {
       crochetType = 'round';
     }
@@ -284,8 +287,21 @@
     const formattedRows = grid.map((row, rowIndex) => {
         // Handle foundation chain separately
         if (rowIndex === 0) {
-            const chainCount = row.filter(stitch => stitch === "ch").length;
-            return `Row 0: ch ${chainCount}, turn.`;
+            // Count chains, handling both regular "ch" and custom chains with color codes
+            const chainCount = row.filter(stitch => 
+                stitch === "ch" || (stitch && stitch.includes('_') && stitch.split('_')[0] === "ch")
+            ).length;
+            
+            // Check if there are any custom colored chains
+            const hasCustomColoredChains = row.some(stitch => 
+                stitch && stitch.includes('_') && stitch.split('_')[0] === "ch"
+            );
+            
+            if (hasCustomColoredChains) {
+                return `Row 0: ch ${chainCount} (with color changes), turn.`;
+            } else {
+                return `Row 0: ch ${chainCount}, turn.`;
+            }
         }
 
         // Remove nulls for pattern detection
@@ -300,6 +316,23 @@
         // Find repeating patterns
         let condensedRow = [];
         let i = 0;
+        let previousStitchColor = null; // Will store either hex code or "default_stitchType"
+        
+        // Check if the first stitch of the row has a custom color
+        if (validStitches.length > 0) {
+            const firstStitch = validStitches[0];
+            const firstStitchType = firstStitch.includes('_') ? firstStitch.split('_')[0] : firstStitch;
+            
+            // For the first stitch, we'll set the previous color
+            if (firstStitch.includes('_')) {
+                // Custom color
+                previousStitchColor = firstStitch.split('_')[1];
+                //condensedRow.push("(start with new color)");
+            } else {
+                // Default color - store as "default_stitchType"
+                previousStitchColor = `default`;
+            }
+        }
 
         while (i < validStitches.length) {
             let maxPatternLength = 1;
@@ -312,6 +345,8 @@
 
                 for (let j = i + patternLength; j <= validStitches.length - patternLength; j += patternLength) {
                     const nextPattern = validStitches.slice(j, j + patternLength);
+                    // Check if every stitch in the pattern matches the corresponding stitch in nextPattern
+                    // Two stitches match if they are exactly the same (including color information)
                     if (pattern.every((stitch, idx) => stitch === nextPattern[idx])) {
                         repetitions++;
                     } else {
@@ -328,10 +363,76 @@
             // Add pattern or single stitch
             if (maxRepetitions > 1) {
                 const pattern = validStitches.slice(i, i + maxPatternLength);
-                condensedRow.push(`(${pattern.join(", ")}) x${maxRepetitions}`);
+                
+                // Process pattern to include color change information
+                const processedPattern = [];
+                let prevColor = previousStitchColor;
+                
+                for (let patIdx = 0; patIdx < pattern.length; patIdx++) {
+                    const stitch = pattern[patIdx];
+                    // Clean stitch name
+                    const cleanStitch = stitch.includes('_') ? stitch.split('_')[0] : stitch;
+                    
+                    // Determine current color representation
+                    let currentColor;
+                    if (stitch.includes('_')) {
+                        // Custom color
+                        currentColor = stitch.split('_')[1];
+                    } else {
+                        // Default color - store as "default_stitchType"
+                        currentColor = `default`;
+                    }
+                    
+                    if (prevColor !== null && prevColor !== currentColor) {
+                        processedPattern.push(`(change color) ${cleanStitch}`);
+                    } else {
+                        processedPattern.push(cleanStitch);
+                    }
+                    
+                    prevColor = currentColor;
+                }
+                
+                // Update previousStitchColor for after the pattern
+                if (pattern.length > 0) {
+                    const lastStitch = pattern[pattern.length - 1];
+                    if (lastStitch.includes('_')) {
+                        previousStitchColor = lastStitch.split('_')[1];
+                    } else {
+                        const cleanLastStitch = lastStitch.includes('_') ? 
+                            lastStitch.split('_')[0] : lastStitch;
+                        previousStitchColor = `default`;
+                    }
+                }
+                
+                condensedRow.push(`(${processedPattern.join(", ")}) x${maxRepetitions}`);
                 i += maxPatternLength * maxRepetitions;
             } else {
-                condensedRow.push(validStitches[i]);
+                // Get the current stitch
+                const currentStitch = validStitches[i];
+                
+                // Clean stitch name for display (remove color code)
+                const cleanStitch = currentStitch.includes('_') ? 
+                    currentStitch.split('_')[0] : currentStitch;
+                
+                // Determine current color representation
+                let currentColor;
+                if (currentStitch.includes('_')) {
+                    // Custom color
+                    currentColor = currentStitch.split('_')[1];
+                } else {
+                    // Default color - store as "default_stitchType"
+                    currentColor = `default`;
+                }
+                
+                // Add color change notation if needed
+                if (previousStitchColor !== null && previousStitchColor !== currentColor) {
+                    condensedRow.push(`(change color) ${cleanStitch}`);
+                } else {
+                    condensedRow.push(cleanStitch);
+                }
+                
+                // Update previous color for next iteration
+                previousStitchColor = currentColor;
                 i++;
             }
         }
@@ -400,8 +501,23 @@ function expandStitchName(shortName) {
 
   function addNewStitch() {
     if (newStitchName.trim()) {
+      // Add the new stitch to customStitches
       customStitches = [...customStitches, { name: newStitchName.trim(), color: newStitchColor }];
       stitchesType = [...stitchesType, newStitchName.trim()];
+      
+      // Find selected nodes to apply the color to
+      if (p5Instance) {
+        const selectedNodes = p5Instance.getSelectedNodes();
+        if (selectedNodes && selectedNodes.length > 0) {
+          // Change the stitch type of selected nodes to the new stitch
+          p5Instance.changeStitchType(selectedNodes, newStitchName.trim());
+          
+          // Force a redraw
+          redrawCanvas();
+        }
+      }
+      
+      // Reset the dialog
       newStitchName = "";
       newStitchColor = "#808080";
       showNewStitchDialog = false;
@@ -409,8 +525,11 @@ function expandStitchName(shortName) {
   }
 
   function removeCustomStitch(stitchName) {
-    customStitches = customStitches.filter(s => s.name !== stitchName);
-    stitchesType = stitchesType.filter(s => s !== stitchName);
+    console.log('Custom stitches before removal:', customStitches);
+    console.log('Removing custom stitch:', stitchName);
+    customStitches = [...customStitches.filter(s => s.name !== stitchName)];
+    stitchesType = [...stitchesType.filter(s => s !== stitchName)];
+    console.log('Custom stitches after removal:', customStitches);
   }
 
   function savePattern() {
@@ -635,7 +754,9 @@ function expandStitchName(shortName) {
         horizontal: horizontalSpacing,
         round: roundSpacing
       },
-      crochetType: crochetType
+      crochetType: crochetType,
+      // Save custom node colors
+      colorMap: grid.colorMap || {}
     };
 
     // Save to localStorage
@@ -687,6 +808,12 @@ function expandStitchName(shortName) {
 
         // Call parsePattern to update the grid
         parsePattern(patternInput.trim());
+        
+        // Load custom node colors if available
+        if (pattern.colorMap) {
+            grid.colorMap = pattern.colorMap;
+        }
+        
         //redrawCanvas();
         //patternToLoad.set(null);
     } else {
@@ -746,6 +873,203 @@ function expandStitchName(shortName) {
     }
   }
 
+  // Function to update stitch colors in the settings panel
+  function updateStitchColors(nodes, newColor, oldColor = null) {
+    if (!nodes) return;
+    
+    console.log('Updating stitch colors:', { nodes, newColor, oldColor });
+    
+    // Initialize grid.colorMap if it doesn't exist
+    if (!grid.colorMap) {
+      grid.colorMap = {};
+    }
+    
+    // Handle different input types
+    if (typeof nodes === 'string') {
+      // If nodes is a string (stitch type), update all nodes of this type
+      // that either have the default color or the specified old color
+      const stitchType = nodes;
+      
+      // Get the current default color for this stitch type
+      let defaultColor;
+      if (stitchType === 'ch') defaultColor = chColor;
+      else if (stitchType === 'sc') defaultColor = scColor;
+      else if (stitchType === 'dc') defaultColor = dcColor;
+      else {
+        const customStitch = customStitches.find(s => s.name === stitchType);
+        defaultColor = customStitch ? customStitch.color : '#000000';
+      }
+      
+      // Update the default color variable
+      if (stitchType === 'ch') chColor = newColor;
+      else if (stitchType === 'sc') scColor = newColor;
+      else if (stitchType === 'dc') dcColor = newColor;
+      else {
+        // For custom stitches, update the color in the customStitches array
+        const customStitchIndex = customStitches.findIndex(s => s.name === stitchType);
+        if (customStitchIndex !== -1) {
+          customStitches[customStitchIndex] = {
+            ...customStitches[customStitchIndex],
+            color: newColor
+          };
+          // Force reactivity by reassigning the array
+          customStitches = [...customStitches];
+        }
+      }
+      
+      // Update nodes that have the old color (or default if oldColor not specified)
+      for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+        for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+          if (grid[rowIndex][colIndex] === stitchType) {
+            const posKey = `${rowIndex}-${colIndex}`;
+            const currentColor = grid.colorMap[posKey] || defaultColor;
+            
+            // If oldColor is specified, only update nodes with that color
+            // Otherwise, update all nodes of this type
+            if (!oldColor || currentColor === oldColor) {
+              // If the new color is the same as the default, remove the custom color
+              if (newColor === defaultColor) {
+                delete grid.colorMap[posKey];
+              } else {
+                grid.colorMap[posKey] = newColor;
+              }
+            }
+          }
+        }
+      }
+    } else if (Array.isArray(nodes)) {
+      // If nodes is an array, update each node individually
+      nodes.forEach(node => {
+        if (!node || (!node.row && node.row !== 0) || (!node.col && node.col !== 0)) return;
+        
+        const posKey = `${node.row}-${node.col}`;
+        grid.colorMap[posKey] = newColor;
+      });
+    } else {
+      console.error('Invalid input to updateStitchColors:', nodes);
+      return;
+    }
+    
+    // Force a redraw to apply the changes
+    redrawCanvas();
+  }
+
+  // Helper function to get the default color for a stitch type
+  function getDefaultColor(stitchType) {
+    if (stitchType === 'ch') return chColor;
+    if (stitchType === 'sc') return scColor;
+    if (stitchType === 'dc') return dcColor;
+    
+    const customStitch = customStitches.find(s => s.name === stitchType);
+    return customStitch ? customStitch.color : '#000000';
+  }
+
+  // Function to check if a stitch type has custom colors
+  function hasCustomColors(stitchType) {
+    if (!grid.colorMap) return false;
+    
+    // Get the default color for this stitch type
+    const defaultColor = getDefaultColor(stitchType);
+    
+    // Check if any position with this stitch type has a custom color
+    // that is different from the default color
+    for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+      for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+        if (grid[rowIndex][colIndex] === stitchType) {
+          const posKey = `${rowIndex}-${colIndex}`;
+          const nodeColor = grid.colorMap[posKey];
+          
+          // If this node has a custom color different from the default
+          if (nodeColor && nodeColor !== defaultColor) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  function getColorGroups() {
+    const groups = new Map();
+    
+    // Helper function to get the color for a specific position
+    function getColorForPosition(rowIndex, colIndex, stitchType) {
+        if (grid.colorMap && grid.colorMap[`${rowIndex}-${colIndex}`]) {
+            return grid.colorMap[`${rowIndex}-${colIndex}`];
+        }
+        
+        return getDefaultColor(stitchType);
+    }
+    
+    // First, add the default color groups
+    const defaultGroups = [
+        { stitch: 'ch', color: chColor, count: 0, isDefault: true },
+        { stitch: 'sc', color: scColor, count: 0, isDefault: true },
+        { stitch: 'dc', color: dcColor, count: 0, isDefault: true },
+        ...customStitches.map(s => ({ stitch: s.name, color: s.color, count: 0, isDefault: true }))
+    ];
+    
+    // Add default groups to the map
+    defaultGroups.forEach(group => {
+        groups.set(`${group.stitch}-default`, group);
+    });
+    
+    // Track custom colors for each stitch type
+    const customColors = new Map();
+    
+    // Iterate through the grid to find all unique color combinations
+    for (let rowIndex = 0; rowIndex < grid.length; rowIndex++) {
+        for (let colIndex = 0; colIndex < grid[rowIndex].length; colIndex++) {
+            const stitch = grid[rowIndex][colIndex];
+            if (stitch) {
+                const posKey = `${rowIndex}-${colIndex}`;
+                const color = getColorForPosition(rowIndex, colIndex, stitch);
+                const defaultColor = getDefaultColor(stitch);
+                
+                // If this is a default color, increment the count in the default group
+                if (color === defaultColor) {
+                    const defaultGroup = groups.get(`${stitch}-default`);
+                    if (defaultGroup) {
+                        defaultGroup.count++;
+                    }
+                } else {
+                    // This is a custom color, create or update a custom group
+                    const key = `${stitch}-${color}`;
+                    
+                    if (!groups.has(key)) {
+                        groups.set(key, {
+                            stitch,
+                            color,
+                            count: 0,
+                            isDefault: false,
+                            isCustom: true
+                        });
+                        
+                        // Track this custom color for this stitch type
+                        if (!customColors.has(stitch)) {
+                            customColors.set(stitch, new Set());
+                        }
+                        customColors.get(stitch).add(color);
+                    }
+                    
+                    groups.get(key).count++;
+                }
+            }
+        }
+    }
+    
+    // Update default groups to indicate if they have custom colors
+    defaultGroups.forEach(group => {
+        if (customColors.has(group.stitch)) {
+            group.hasCustomColors = true;
+        }
+    });
+    
+    // Convert to array and filter out groups with count 0
+    return Array.from(groups.values()).filter(group => group.count > 0);
+  }
+
   onMount(async () => {
 
     const saved = localStorage.getItem('savedPatterns');
@@ -802,7 +1126,6 @@ function expandStitchName(shortName) {
         console.log("removing p5instance");
         p5Instance.remove();
       }
-      console.log(grid);
       if (viewMode === 'expert') {
             if (crochetType === 'round') {
                 p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true), document.getElementById('p5Canvas'));
@@ -812,6 +1135,9 @@ function expandStitchName(shortName) {
         } else if (viewMode === 'physics') {
             p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
         } else if (viewMode === 'round') {
+            // Round view is now deprecated - we use crochetType instead
+            crochetType = 'round';
+            viewMode = 'basic';
             p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
         } else {
             // Basic view
@@ -892,7 +1218,9 @@ function expandStitchName(shortName) {
           {#if showAddStitchDropdown}
             <div class="stitch-dropdown">
               {#each stitchesType as stitch}
-                <button class="dropdown-item" on:click={() => addStitch(stitch)}>{stitch}</button>
+                <button class="dropdown-item" on:click={() => addStitch(stitch)}>
+                  {stitch.includes('_') ? stitch.split('_')[0] : stitch}
+                </button>
               {/each}
             </div>
           {/if}
@@ -948,7 +1276,7 @@ function expandStitchName(shortName) {
             </label>
           </div>
         </div>
-        
+        {#if crochetType === 'flat'}
         <div class="slider-group">
           <label for="vertical-spacing">Vertical Spacing: {verticalSpacing}px</label>
           <input 
@@ -971,6 +1299,7 @@ function expandStitchName(shortName) {
             class="slider"
           >
         </div>
+        {/if}
         {#if crochetType === 'round'}
         <div class="slider-group">
           <label for="round-spacing">Round Spacing: {roundSpacing}px</label>
@@ -984,77 +1313,93 @@ function expandStitchName(shortName) {
           >
         </div>
         {/if}
-        <div class="color-pickers-container">
-          <div class="color-group">
-            <label for="ch-color">ch</label>
-            <input 
-              type="color" 
-              id="ch-color" 
-              bind:value={chColor}
-              class="color-picker"
-            >
-          </div>
-          <div class="color-group">
-            <label for="sc-color">sc</label>
-            <input 
-              type="color" 
-              id="sc-color" 
-              bind:value={scColor}
-              class="color-picker"
-            >
-          </div>
-          <div class="color-group">
-            <label for="dc-color">dc</label>
-            <input 
-              type="color" 
-              id="dc-color" 
-              bind:value={dcColor}
-              class="color-picker"
-            >
-          </div>
-          {#each customStitches as stitch}
+        <div class="color-settings">
+          <h3>Color Settings</h3>
+          <div class="color-grid">
+            <!-- Default stitch colors -->
+            <div class="color-group section-header">
+              <label>Stitch Colors</label>
+            </div>
+            
             <div class="color-group">
-              <label>{stitch.name}</label>
+              <label>ch</label>
               <div class="color-picker-container">
-                <input 
-                  type="color" 
-                  bind:value={stitch.color}
-                  class="color-picker"
-                >
-                <button class="remove-stitch" on:click={() => removeCustomStitch(stitch.name)}>×</button>
+                <input type="color" bind:value={chColor} on:change={(e) => {
+                  updateStitchColors('ch', e.target.value, chColor);
+                  redrawCanvas();
+                }} />
+                {#if hasCustomColors('ch')}
+                  <button class="reset-button" on:click={(e) => {
+                    e.stopPropagation();
+                    updateStitchColors('ch', chColor);
+                    redrawCanvas();
+                  }}>×</button>
+                {/if}
               </div>
             </div>
-          {/each}
-          <div class="color-group">
-            <label>Add</label>
-            <button class="add-stitch" on:click={() => showNewStitchDialog = true}>+</button>
+            
+            <div class="color-group">
+              <label>sc</label>
+              <div class="color-picker-container">
+                <input type="color" bind:value={scColor} on:change={(e) => {
+                  updateStitchColors('sc', e.target.value, scColor);
+                  redrawCanvas();
+                }} />
+                {#if hasCustomColors('sc')}
+                  <button class="reset-button" on:click={(e) => {
+                    e.stopPropagation();
+                    updateStitchColors('sc', scColor);
+                    redrawCanvas();
+                  }}>×</button>
+                {/if}
+              </div>
+            </div>
+            
+            <div class="color-group">
+              <label>dc</label>
+              <div class="color-picker-container">
+                <input type="color" bind:value={dcColor} on:change={(e) => {
+                  updateStitchColors('dc', e.target.value, dcColor);
+                  redrawCanvas();
+                }} />
+                {#if hasCustomColors('dc')}
+                  <button class="reset-button" on:click={(e) => {
+                    e.stopPropagation();
+                    updateStitchColors('dc', dcColor);
+                    redrawCanvas();
+                  }}>×</button>
+                {/if}
+              </div>
+            </div>
+            
+            <!-- Custom stitches -->
+            {#each customStitches as stitch}
+              <div class="color-group">
+                <label>{stitch.name.includes('_') ? stitch.name.split('_')[0] : stitch.name}</label>
+                <div class="color-picker-container">
+                  <input type="color" bind:value={stitch.color} on:change={(e) => {
+                    updateStitchColors(stitch.name, e.target.value, stitch.color);
+                    redrawCanvas();
+                  }} />
+                  {#if hasCustomColors(stitch.name)}
+                    <button class="reset-button" on:click={(e) => {
+                      e.stopPropagation();
+                      updateStitchColors(stitch.name, stitch.color);
+                      redrawCanvas();
+                    }}>×</button>
+                  {/if}
+                  <button class="remove-stitch" on:click={() => removeCustomStitch(stitch.name)}>×</button>
+                </div>
+              </div>
+            {/each}
+            
+            <!-- Add custom stitch button -->
+            <div class="color-group">
+              <label>Add</label>
+              <button class="add-stitch" on:click={() => showNewStitchDialog = true}>+</button>
+            </div>
           </div>
         </div>
-
-        {#if showNewStitchDialog}
-          <div class="new-stitch-dialog">
-            <h3>Add New Stitch</h3>
-            <div class="new-stitch-input-group">
-              <input 
-                type="text" 
-                bind:value={newStitchName} 
-                placeholder="Enter stitch name"
-                class="new-stitch-input"
-              >
-            </div>
-            <div class="color-picker-container">
-              <input 
-                type="color" 
-                bind:value={newStitchColor}
-                class="color-picker"
-              >
-            </div>
-            <div class="dialog-buttons">
-              <button on:click={addNewStitch}>Add</button>
-              <button on:click={() => showNewStitchDialog = false}>Cancel</button>
-            </div>
-          </div>
-        {/if}
       {/if}
     </div>
     
@@ -1102,6 +1447,28 @@ function expandStitchName(shortName) {
   </div>
 {/if}
 
+{#if showNewStitchDialog}
+  <div class="new-stitch-dialog">
+    <h3>Add New Stitch</h3>
+    <div class="new-stitch-input-group">
+      <input 
+        type="text" 
+        bind:value={newStitchName} 
+        placeholder="Enter stitch name"
+        class="new-stitch-input"
+      >
+    </div>
+    <div class="new-stitch-input-group">
+      <label>Stitch Color:</label>
+      <input type="color" bind:value={newStitchColor}>
+    </div>
+    <div class="dialog-buttons">
+      <button class="primary" on:click={addNewStitch}>Add</button>
+      <button class="secondary" on:click={() => showNewStitchDialog = false}>Cancel</button>
+    </div>
+  </div>
+{/if}
+
 {#if contextMenuVisible}
     <ContextMenu 
         x={contextMenuProps.x}
@@ -1135,6 +1502,48 @@ function expandStitchName(shortName) {
                 if (selectedNodes && selectedNodes.length > 0) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.changeStitchType(selectedNodes, stitchType);
+                    redrawCanvas();
+                }
+            }
+            hideContextMenu();
+        }}
+        on:changeColor={(event) => {
+            const color = event.detail;
+            if (p5Instance) {
+                const selectedNodes = p5Instance.getSelectedNodes();
+                if (selectedNodes && selectedNodes.length > 0) {
+                    gridEditing = true; // Enter grid editing mode
+                    
+                    // Get unique stitch types in the selection
+                    const uniqueStitchTypes = new Set();
+                    selectedNodes.forEach(node => {
+                        if (node.stitch) {
+                            uniqueStitchTypes.add(node.stitch);
+                        }
+                    });
+                    
+                    // For each unique stitch type, create a new custom stitch with the selected color
+                    uniqueStitchTypes.forEach(stitchType => {
+                        // Create a new stitch name based on the original stitch type and color
+                        const colorHex = color.replace('#', '');
+                        const newStitchName = `${stitchType}_${colorHex.substring(0, 3)}`;
+                        
+                        // Check if this custom stitch already exists
+                        const existingStitch = customStitches.find(s => s.name === newStitchName);
+                        if (!existingStitch) {
+                            // Add the new stitch to customStitches
+                            customStitches = [...customStitches, { name: newStitchName, color: color }];
+                            stitchesType = [...stitchesType, newStitchName];
+                        }
+                        
+                        // Change the stitch type of selected nodes of this type to the new stitch
+                        const nodesOfThisType = selectedNodes.filter(node => node.stitch === stitchType);
+                        if (nodesOfThisType.length > 0) {
+                            p5Instance.changeStitchType(nodesOfThisType, newStitchName);
+                        }
+                    });
+                    
+                    // Force a redraw to update the color groups
                     redrawCanvas();
                 }
             }
@@ -1251,4 +1660,233 @@ function expandStitchName(shortName) {
   .toggle-label:has(input:checked):hover {
     background-color: #3e8e41;
   }
+
+  /* Reset custom colors button */
+  .reset-button {
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    margin-left: 5px;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .reset-button:hover {
+    background-color: #f1b0b7;
+  }
+
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 15px;
+    width: 100%;
+    justify-content: start;
+  }
+  .color-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 0;
+    flex: 0 0 auto;
+    text-align: center;
+  }
+  
+  .color-group label {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-family: 'Fira Code', monospace;
+    text-align: center;
+    width: 100%;
+    display: block;
+    justify-content: center;
+  }
+  
+  .color-group label .custom-label {
+    font-size: 0.8em;
+    color: #ff4444;
+    margin-left: 2px;
+    font-style: italic;
+    display: inline-block;
+  }
+  
+  .color-picker-container {
+    position: relative;
+    width: 40px;
+    height: 40px;
+  }
+  
+  input[type="color"] {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    background: none;
+  }
+  
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    width: 40px;
+  }
+  
+  input[type="color"]::-webkit-color-swatch {
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .add-stitch, .remove-stitch {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .add-stitch:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--primary-color);
+  }
+  
+  .remove-stitch {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    font-size: 16px;
+    padding: 0;
+    line-height: 1;
+    background-color: var(--bg-secondary);
+    border: none;
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .remove-stitch:hover {
+    background-color: #ff4444;
+    color: var(--bg-secondary);
+  }
+  
+  .reset-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    padding: 0;
+    line-height: 1;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: none;
+    border-radius: 50%;
+    transform: translate(50%, -50%);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .reset-button:hover {
+    background-color: #ff4444;
+    color: white;
+  }
+  
+  .custom-group {
+    background-color: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+    border-left: 3px solid #ff4444;
+  }
+  
+  .custom-label {
+    font-size: 0.8em;
+    color: #ff4444;
+    margin-left: 5px;
+    font-style: italic;
+  }
+  
+  .new-stitch-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px var(--shadow-color-dark);
+    z-index: 1000;
+    width: 300px;
+  }
+  
+  .new-stitch-dialog h3 {
+    margin: 0 0 15px 0;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  
+  .new-stitch-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  
+  .new-stitch-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-family: 'Fira Code', monospace;
+  }
+  
+  .new-stitch-input-group input[type="color"] {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .dialog-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  
+  .dialog-buttons button {
+    flex: 1;
+    margin: 0;
+  }
+
+  .color-group.section-header {
+    grid-column: 1 / -1;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid var(--border-color, #ddd);
+  }
+  
+  .color-group.section-header label {
+    font-weight: bold;
+    color: var(--text-primary, #333);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
 </style>
+

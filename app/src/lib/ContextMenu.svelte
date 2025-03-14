@@ -6,6 +6,8 @@
     export let y = 0;
     export let stitchesType = ['ch', 'sc', 'dc'];
     let showStitchTypes = false;
+    let showColorPicker = false;
+    let selectedColor = "#4CAF50"; // Default color
 
     function handleDelete() {
         console.log("ContextMenu: handleDelete called");
@@ -19,6 +21,10 @@
 
     function handleChangeStitchType(stitchType) {
         dispatch('changeStitchType', stitchType);
+    }
+
+    function handleChangeColor() {
+        dispatch('changeColor', selectedColor);
     }
 
     function handleMenuClick(event) {
@@ -65,6 +71,41 @@
     .stitch-type-item:hover {
         background-color: #f0f0f0; /* Highlight on hover */
     }
+
+    .color-picker-submenu {
+        position: absolute;
+        left: 100%;
+        bottom: 0;
+        background: white;
+        border: 1px solid #ccc;
+        padding: 8px;
+        z-index: 1000;
+        display: none;
+    }
+
+    .context-menu-item:hover .color-picker-submenu {
+        display: block;
+    }
+
+    .color-picker-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .color-picker-apply {
+        margin-top: 8px;
+        padding: 4px 8px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .color-picker-apply:hover {
+        background: #45a049;
+    }
 </style>
 
 <div class="context-menu" 
@@ -72,16 +113,25 @@
     on:click={handleMenuClick}
 >
     <div class="context-menu-item" on:click={handleDelete}>Delete</div>
-    <div class="context-menu-item" on:click={handleDuplicate}>Duplicate</div>
     <div class="context-menu-item" on:mouseenter={() => showStitchTypes = true} on:mouseleave={() => showStitchTypes = false}>
         Change Stitch Type
         {#if showStitchTypes}
             <div class="stitch-type-submenu">
                 {#each stitchesType as stitch}
                     <div class="stitch-type-item" on:click={() => handleChangeStitchType(stitch)}>
-                        {stitch}
+                        {stitch.includes('_') ? stitch.split('_')[0] : stitch}
                     </div>
                 {/each}
+            </div>
+        {/if}
+    </div>
+    <div class="context-menu-item" on:mouseenter={() => showColorPicker = true} on:mouseleave={() => showColorPicker = false}>
+        Change Color
+        {#if showColorPicker}
+            <div class="color-picker-submenu">
+                <div class="color-picker-container">
+                    <input type="color" bind:value={selectedColor} on:input={handleChangeColor}/>
+                </div>
             </div>
         {/if}
     </div>

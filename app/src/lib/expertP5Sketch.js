@@ -99,6 +99,12 @@ export function createExpertP5Instance(p5, grid, stitchesDone, isPlaying, vertic
           }
           if (count >= stitchesDone && isPlaying)
             p5.fill(180);
+          p5.fill(0);
+          p5.textSize(10);
+          p5.textAlign(p5.CENTER, p5.CENTER);
+          // Display only the stitch type (without color code)
+          const displayStitch = stitch.includes('_') ? stitch.split('_')[0] : stitch;
+          p5.text(displayStitch, 0, 0);
         }
       }
     

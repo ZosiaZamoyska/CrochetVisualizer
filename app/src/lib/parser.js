@@ -18,6 +18,7 @@ export function parsePattern(input) {
 
     for (let i = 0; i < stitches.length; i++) {
         let stitch = stitches[i];
+        //console.log(stitch);
         
         if (stitch === "ch") {
             if (base) {

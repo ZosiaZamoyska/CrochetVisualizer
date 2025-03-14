@@ -38,26 +38,37 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
 
         // Draw nodes
         nodes.forEach(node => {
-            // Set the fill color based on the stitch type
-            switch (node.stitch) {
-                case 'ch':
-                    p5.fill(chColor);
-                    break;
-                case 'sc':
-                    p5.fill(scColor);
-                    break;
-                case 'dc':
-                    p5.fill(dcColor);
-                    break;
-                default:
-                    // Check for custom stitch color
-                    const customStitch = customStitches.find(s => s.name === node.stitch);
-                    if (customStitch) {
-                        p5.fill(customStitch.color);
-                    } else {
-                        p5.fill(180); // Default gray for unknown stitch types
+            // Check for custom color first
+            if (node.customColor) {
+                p5.fill(node.customColor);
+            } else {
+                // Get color from colorMap or use default based on stitch type
+                const customColor = p5.getNodeColor(node.id, node.stitch);
+                if (customColor) {
+                    p5.fill(customColor);
+                } else {
+                    // Set the fill color based on the stitch type
+                    switch (node.stitch) {
+                        case 'ch':
+                            p5.fill(chColor);
+                            break;
+                        case 'sc':
+                            p5.fill(scColor);
+                            break;
+                        case 'dc':
+                            p5.fill(dcColor);
+                            break;
+                        default:
+                            // Check for custom stitch color
+                            const customStitch = customStitches.find(s => s.name === node.stitch);
+                            if (customStitch) {
+                                p5.fill(customStitch.color);
+                            } else {
+                                p5.fill(180); // Default gray for unknown stitch types
+                            }
+                            break;
                     }
-                    break;
+                }
             }
 
             p5.stroke(0);
@@ -66,7 +77,9 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
             p5.fill(0);
             p5.noStroke();
             p5.textAlign(p5.CENTER, p5.CENTER);
-            p5.text(node.stitch, node.x, node.y); // Draw stitch type instead of ID
+            // Display only the stitch type (without color code)
+            const displayStitch = node.stitch.includes('_') ? node.stitch.split('_')[0] : node.stitch;
+            p5.text(displayStitch, node.x, node.y); // Draw stitch type instead of ID
         });
     };
 
@@ -152,4 +165,54 @@ export function createPhysicsP5Instance(p5, grid, stitchesDone, isPlaying, verti
         updateGraph(); // Update the graph based on the new pattern
         updateNodePositions(); // Update node positions based on the grid
     }
+
+    // Add this function to handle changing node colors
+    p5.changeNodeColor = function(nodes, color) {
+        if (!nodes || nodes.length === 0) return;
+        
+        // Initialize colorMap if it doesn't exist
+        if (!grid.colorMap) {
+            grid.colorMap = {};
+        }
+        
+        // Apply the color to each selected node
+        nodes.forEach(node => {
+            // For physics view, we need to extract the row and column from the node id
+            if (node && node.id) {
+                const [rowIndex, colIndex] = node.id.split('-').map(Number);
+                grid.colorMap[`${rowIndex}-${colIndex}`] = color;
+                
+                // Also update the node's customColor property for immediate visual feedback
+                node.customColor = color;
+            }
+        });
+        
+        // Redraw the canvas
+        p5.redraw();
+    };
+    
+    // Add this function to get the color for a specific node
+    p5.getNodeColor = function(nodeId, stitchType) {
+        if (!nodeId) return null;
+        
+        const [rowIndex, colIndex] = nodeId.split('-').map(Number);
+        
+        // Check if this node has a custom color
+        if (grid.colorMap && grid.colorMap[`${rowIndex}-${colIndex}`]) {
+            return grid.colorMap[`${rowIndex}-${colIndex}`];
+        }
+        
+        // Otherwise return the default color for this stitch type
+        switch (stitchType) {
+            case 'ch':
+                return chColor;
+            case 'sc':
+                return scColor;
+            case 'dc':
+                return dcColor;
+            default:
+                const customStitch = customStitches.find(s => s.name === stitchType);
+                return customStitch ? customStitch.color : '#000000';
+        }
+    };
 }
