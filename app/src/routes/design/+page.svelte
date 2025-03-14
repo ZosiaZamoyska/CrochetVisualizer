@@ -11,6 +11,7 @@
   import '@xyflow/svelte/dist/style.css';
   import { patternToLoad, nodeDataStore, updateNodeData } from '$lib/store';
   import { propagateData } from '$lib/NodeDataPropagation';
+  import { mergeWithDefaultPatterns } from '$lib/utils/defaultPatterns.js';
   import PatternNode from './PatternNode.svelte';
   import TextNode from './TextNode.svelte';
   import ExportNode from './ExportNode.svelte';
@@ -23,6 +24,7 @@
   const edges = writable([]);
   let nextNodeId = 1;
   let nodesInitialized = false;
+  let previousEdges = [];
 
   // Watch for changes in nodes
   $: if ($nodes.length > 0 && !nodesInitialized) {
@@ -33,15 +35,169 @@
     });
   }
 
-  // Watch for changes in edges
-  $: if ($edges.length > 0) {
-    // For each edge, propagate data from source to target
-    $edges.forEach(edge => {
-      propagateData({
-        edges: $edges,
-        nodes: $nodes,
-        sourceId: edge.source
+  // Watch for node deletions
+  $: if (nodesInitialized && $nodes.length > 0) {
+    // Check if any nodes were deleted
+    const nodeIds = $nodes.map(node => node.id);
+    
+    // Get all node IDs in the store
+    let storeNodeIds = [];
+    let deletedNodeIds = [];
+    
+    nodeDataStore.update(store => {
+      storeNodeIds = Object.keys(store);
+      
+      // Find deleted nodes
+      deletedNodeIds = storeNodeIds.filter(id => !nodeIds.includes(id));
+      
+      // Remove deleted nodes from the store
+      deletedNodeIds.forEach(id => {
+        delete store[id];
+        console.log(`Node ${id} was deleted, removing from store`);
       });
+      
+      return store;
+    });
+    
+    // If any nodes were deleted, refresh all export nodes
+    if (deletedNodeIds.length > 0) {
+      console.log(`Nodes were deleted: ${deletedNodeIds.join(', ')}, refreshing export nodes`);
+      
+      // Find all edges that reference deleted nodes
+      const edgesToRemove = $edges.filter(edge => 
+        deletedNodeIds.includes(edge.source) || deletedNodeIds.includes(edge.target)
+      );
+      
+      // If there are edges to remove, update the edges store
+      if (edgesToRemove.length > 0) {
+        console.log(`Removing ${edgesToRemove.length} edges that reference deleted nodes`);
+        const updatedEdges = $edges.filter(edge => 
+          !deletedNodeIds.includes(edge.source) && !deletedNodeIds.includes(edge.target)
+        );
+        edges.set(updatedEdges);
+      }
+      
+      // Refresh all export nodes using their registered refresh functions
+      Object.entries(exportNodeRefreshFunctions).forEach(([id, refreshFunction]) => {
+        console.log(`Refreshing export node ${id} after node deletion`);
+        refreshFunction();
+      });
+    }
+  }
+
+  // Watch for changes in edges
+  $: if ($edges) {
+    // Check for deleted edges
+    if (previousEdges.length > $edges.length) {
+      console.log('Edge was deleted, updating data flow');
+      
+      // Find deleted edges
+      const currentEdgeIds = $edges.map(edge => `${edge.source}-${edge.target}`);
+      const deletedEdges = previousEdges.filter(edge => 
+        !currentEdgeIds.includes(`${edge.source}-${edge.target}`)
+      );
+      
+      // For each deleted edge, update the target node
+      deletedEdges.forEach(edge => {
+        const targetNode = $nodes.find(node => node.id === edge.target);
+        if (targetNode && targetNode.type === 'export') {
+          console.log(`Edge to export node ${edge.target} was deleted, refreshing`);
+          
+          // Use the registered refresh function if available
+          if (exportNodeRefreshFunctions[edge.target]) {
+            exportNodeRefreshFunctions[edge.target]();
+          }
+        }
+      });
+    } else if (previousEdges.length < $edges.length) {
+      // New edge was added
+      const newEdges = $edges.filter(edge => 
+        !previousEdges.some(pe => pe.source === edge.source && pe.target === edge.target)
+      );
+      
+      // For each new edge, propagate data
+      newEdges.forEach(edge => {
+        propagateData({
+          edges: $edges,
+          nodes: $nodes,
+          sourceId: edge.source
+        });
+        
+        // If the target is an export node, refresh it
+        const targetNode = $nodes.find(node => node.id === edge.target);
+        if (targetNode && targetNode.type === 'export' && exportNodeRefreshFunctions[edge.target]) {
+          console.log(`New edge to export node ${edge.target} was added, refreshing`);
+          exportNodeRefreshFunctions[edge.target]();
+        }
+      });
+    } else {
+      // For each edge, propagate data from source to target
+      $edges.forEach(edge => {
+        propagateData({
+          edges: $edges,
+          nodes: $nodes,
+          sourceId: edge.source
+        });
+      });
+    }
+    
+    // Update previous edges
+    previousEdges = [...$edges];
+  }
+
+  // Keep track of export nodes for refreshing
+  const exportNodeRefreshFunctions = {};
+
+  // Function to register an export node
+  function registerExportNode(id, refreshFunction) {
+    console.log(`Registering export node ${id} for refreshing`);
+    exportNodeRefreshFunctions[id] = refreshFunction;
+  }
+
+  // Function to unregister an export node
+  function unregisterExportNode(id) {
+    console.log(`Unregistering export node ${id}`);
+    delete exportNodeRefreshFunctions[id];
+  }
+
+  // Function to get all addexport nodes
+  function getFlowNodes() {
+    return $nodes;
+  }
+
+  // Function to force refresh the entire flow
+  function refreshFlow() {
+    console.log('Manually refreshing the entire flow');
+    
+    // First, update the nodeDataStore to ensure it's clean
+    nodeDataStore.update(store => {
+      // Remove any nodes that no longer exist
+      const nodeIds = $nodes.map(node => node.id);
+      Object.keys(store).forEach(id => {
+        if (!nodeIds.includes(id)) {
+          delete store[id];
+          console.log(`Cleaning up node ${id} from store during refresh`);
+        }
+      });
+      return store;
+    });
+    
+    // Then propagate data for all edges
+    $edges.forEach(edge => {
+      // Only propagate if the source node still exists
+      if ($nodes.some(node => node.id === edge.source)) {
+        propagateData({
+          edges: $edges,
+          nodes: $nodes,
+          sourceId: edge.source
+        });
+      }
+    });
+    
+    // Finally, refresh all export nodes using their registered refresh functions
+    Object.entries(exportNodeRefreshFunctions).forEach(([id, refreshFunction]) => {
+      console.log(`Refreshing export node ${id} via registered function`);
+      refreshFunction();
     });
   }
 
@@ -282,6 +438,11 @@
     }
   }
 
+  // Handle edge changes
+  function handleEdgesChange(event) {
+    console.log('Edges changed:', event);
+  }
+
   // Load pattern into the main editor
   function loadPatternToEditor(nodeId) {
     const node = $nodes.find(n => n.id === nodeId);
@@ -290,15 +451,40 @@
     }
   }
 
+  // Function to check if a pattern is a default pattern
+  function isDefaultPattern(id) {
+    // Get default pattern IDs
+    const defaultPatterns = getDefaultPatterns();
+    const defaultPatternIds = new Set(defaultPatterns.map(p => p.id));
+    return defaultPatternIds.has(id);
+  }
+
   onMount(() => {
     // Load saved patterns from localStorage
+    let userPatterns = [];
     const saved = localStorage.getItem('savedPatterns');
     if (saved) {
-      savedPatterns = JSON.parse(saved);
+      try {
+        userPatterns = JSON.parse(saved);
+      } catch (error) {
+        console.error('Error parsing saved patterns:', error);
+        userPatterns = [];
+      }
     }
+
+    // Merge user patterns with default patterns
+    savedPatterns = mergeWithDefaultPatterns(userPatterns);
+    
+    // Save the merged patterns back to localStorage
+    localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
 
     // Add loadPattern to window for node button click handling
     window.loadPattern = loadPatternToEditor;
+    
+    // Add functions for export nodes to access
+    window.getFlowNodes = getFlowNodes;
+    window.registerExportNode = registerExportNode;
+    window.unregisterExportNode = unregisterExportNode;
 
     // Initialize canvas with default nodes
     const initialNodes = [
@@ -371,7 +557,12 @@
           {:else}
             <div class="no-preview">No preview</div>
           {/if}
-          <span>{pattern.name}</span>
+          <div class="pattern-info">
+            <span class="pattern-name">{pattern.name}</span>
+            {#if isDefaultPattern(pattern.id)}
+              <span class="default-badge">Default</span>
+            {/if}
+          </div>
         </div>
       {/each}
     </div>
@@ -388,6 +579,12 @@
         </div>
       {/each}
     </div>
+    
+    <div class="actions">
+      <button class="refresh-button" on:click={refreshFlow}>
+        Refresh Flow
+      </button>
+    </div>
   </div>
 
   <div class="canvas-container" on:drop={handleDrop} on:dragover={(e) => e.preventDefault()}>
@@ -399,6 +596,8 @@
       defaultEdgeOptions={flowConfig.defaultEdgeOptions}
       on:connect={handleConnect}
       on:nodechange={handleNodeChange}
+      on:edgeschange={handleEdgesChange}
+      deleteKeyCode="Delete"
     >
       <Background />
       <Controls />
@@ -496,5 +695,46 @@
 
   .instruction-item:hover {
     background: #f0f0f0;
+  }
+  
+  .actions {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    border-top: 1px solid #ddd;
+  }
+  
+  .refresh-button {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--primary-color, #4299e1);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+  }
+  
+  .refresh-button:hover {
+    background: var(--primary-color-dark, #3182ce);
+  }
+
+  .pattern-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .pattern-name {
+    font-weight: bold;
+  }
+  
+  .default-badge {
+    font-size: 0.7rem;
+    background: var(--primary-color, #4299e1);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    align-self: flex-start;
   }
 </style>

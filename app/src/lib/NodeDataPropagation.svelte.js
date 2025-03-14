@@ -53,23 +53,54 @@ function updateTargetNode(targetNode, sourceData, nodes, edges) {
     const instructions = [];
     
     // Collect instructions from all source nodes
+    // Only include edges where the source node still exists in the store
     incomingEdges.forEach(edge => {
       const sourceId = edge.source;
       const sourceData = nodeData[sourceId];
       
+      // Verify the source node still exists in the store
       if (sourceData && sourceData.instructions) {
-        instructions.push(...sourceData.instructions);
+        // Verify the source node still exists in the nodes array
+        const sourceNodeExists = nodes.some(node => node.id === sourceId);
+        if (sourceNodeExists) {
+          instructions.push(...sourceData.instructions);
+        } else {
+          console.log(`Source node ${sourceId} no longer exists, skipping its instructions`);
+        }
       }
     });
     
-    // Update the export node data
+    // Update the export node data in the store
     nodeDataStore.update(store => {
       store[targetId] = {
         ...targetNode.data,
-        instructions
+        instructions: [...instructions]
       };
       return store;
     });
+    
+    // Also update the actual node data
+    const targetNodeIndex = nodes.findIndex(n => n.id === targetId);
+    if (targetNodeIndex !== -1) {
+      // Create a new reference to trigger reactivity
+      const updatedNode = {
+        ...nodes[targetNodeIndex],
+        data: {
+          ...nodes[targetNodeIndex].data,
+          instructions: [...instructions]
+        }
+      };
+      
+      // Update the node in the array
+      const updatedNodes = [...nodes];
+      updatedNodes[targetNodeIndex] = updatedNode;
+      
+      // If nodes is a writable store, update it
+      if (typeof nodes.set === 'function') {
+        nodes.set(updatedNodes);
+        console.log(`Updated export node ${targetId} with ${instructions.length} instructions`);
+      }
+    }
   } 
   // For other node types, just pass through the data
   else {

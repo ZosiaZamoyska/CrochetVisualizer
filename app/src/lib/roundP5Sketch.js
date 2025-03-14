@@ -9,7 +9,7 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
     
     // Round crochet specific variables
     //let angle = 360; // Total angle in degrees (full circle)
-    let centerX, centerY;
+let centerX, centerY;
     
     p5.setup = () => {
         p5.createCanvas(800, 600);
