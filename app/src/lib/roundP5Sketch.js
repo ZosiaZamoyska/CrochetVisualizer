@@ -333,10 +333,81 @@ let centerX, centerY;
         const stitch = position.stitch;
         const theta = position.theta;
         
-        p5.push();
-        p5.translate(x, y);
-        p5.rotate(theta + 90); // Align upright relative to center
+        // Find the current round index for this position
+        let currentRoundIndex = -1;
+        for (let i = 0; i < positions_null.length; i++) {
+            if (positions_null[i].some(pos => pos === position)) {
+                currentRoundIndex = i;
+                break;
+            }
+        }
         
+        // Skip the first round (chains) or if we couldn't find the round
+        if (currentRoundIndex <= 0 || currentRoundIndex === -1) {
+            // Just draw at the original position for the first round
+            p5.push();
+            p5.translate(x, y);
+            p5.rotate(theta + 90); // Align upright relative to center
+            drawStitchSymbol(stitch);
+            p5.pop();
+            return;
+        }
+        
+        // Find the closest node in the previous round
+        const prevRound = positions_null[currentRoundIndex - 1];
+        const validPrevStitches = prevRound.filter(pos => pos.stitch !== null);
+        
+        if (validPrevStitches.length === 0) {
+            // No previous stitches to connect to, use original position
+            p5.push();
+            p5.translate(x, y);
+            p5.rotate(theta + 90); // Align upright relative to center
+            drawStitchSymbol(stitch);
+            p5.pop();
+            return;
+        }
+        
+        // Find the closest previous stitch
+        let closestPrevStitch = null;
+        let closestDist = Number.MAX_VALUE;
+        
+        for (let j = 0; j < validPrevStitches.length; j++) {
+            const prevStitch = validPrevStitches[j];
+            const dist = p5.dist(x, y, prevStitch.x, prevStitch.y);
+            
+            if (dist < closestDist) {
+                closestDist = dist;
+                closestPrevStitch = prevStitch;
+            }
+        }
+        
+        if (closestPrevStitch) {
+            // Calculate the angle between the current node and the previous node
+            const connectionAngle = p5.atan2(closestPrevStitch.y - y, closestPrevStitch.x - x);
+            
+            // Calculate the position along the connection line
+            // Position it 30% of the way from the current node to the previous node
+            const offsetX = (closestPrevStitch.x - x) * 0.3;
+            const offsetY = (closestPrevStitch.y - y) * 0.3;
+            
+            // Draw the stitch symbol at the offset position, rotated to align with the connection
+            p5.push();
+            p5.translate(x + offsetX, y + offsetY);
+            p5.rotate(connectionAngle + 90); // Rotate to align with the connection line
+            drawStitchSymbol(stitch);
+            p5.pop();
+        } else {
+            // Fallback to original position
+            p5.push();
+            p5.translate(x, y);
+            p5.rotate(theta + 90); // Align upright relative to center
+            drawStitchSymbol(stitch);
+            p5.pop();
+        }
+    }
+    
+    // Helper function to draw the stitch symbol
+    function drawStitchSymbol(stitch) {
         p5.stroke(0);
         p5.noFill();
         const h = 15; // Height of stitch symbol
@@ -345,14 +416,22 @@ let centerX, centerY;
         if (stitch === 'ch') {
             p5.ellipse(0, 0, 10, 10); // Chain as small circle
         } else if (stitch === 'sc') {
-            p5.line(0, -h / 2, 0, h / 2); // Single crochet as vertical line
-        } else if (stitch === 'dc') {
+            p5.line(0, -h, 0, h); // Single crochet as vertical line
+            p5.line(-5, 0, 5, 0); // Line across
+        } else if (stitch === 'hdc') {
             p5.line(0, -h, 0, h); // Double crochet as taller line
-            p5.line(-5, -h / 2, 5, -h / 2); // Line across
+            p5.line(-5, h, 5, h); // Line hat
+        }
+        else if (stitch === 'dc') {
+            p5.line(0, -h, 0, h); // Double crochet as taller line
+            p5.line(-5, h, 5, h); // Line hat
+            p5.line(-5, -h / 3, 5, h / 3); // Line across vertical
         } else if (stitch === 'tr') {
-            p5.line(0, -h * 1.2, 0, h * 1.2); // Treble as even taller line
-            p5.line(-5, -h * 0.8, 5, -h * 0.8);
-            p5.line(-5, 0, 5, 0); // Two cross lines
+            p5.line(0, -h, 0, h); // Treble as even taller line
+            p5.line(-5, h, 5, h); // Line hat
+            p5.line(-5, -3-h/3, 5, -3+h/3);
+            p5.line(-5, -h/3, 5, h/3);
+
         } else if (stitch.includes('+')) {
             // Handle combined stitches like 'sc+ch'
             const parts = stitch.split('+');
@@ -373,8 +452,6 @@ let centerX, centerY;
             const displayStitch = stitch.includes('_') ? stitch.split('_')[0] : stitch;
             p5.text(displayStitch, 0, 0);
         }
-        
-        p5.pop();
     }
     
     function deleteSelectedNodes(nodes) {

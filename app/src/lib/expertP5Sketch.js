@@ -74,19 +74,20 @@ export function createExpertP5Instance(p5, grid, stitchesDone, isPlaying, vertic
     
       function drawNode(p5, stitch, x, y, size) {
         if (stitch) {
+          const displayStitch = stitch.includes('_') ? stitch.split('_')[0] : stitch;
           p5.noFill();
           p5.stroke(0);
-          if (stitch !== 'ch')
+          if (displayStitch !== 'ch')
           {
             drawArrow({ x: x, y: y }, { x: x, y: y + size*1.5  }, false, 1);
           }
-          if (stitch === 'ch') {
+          if (displayStitch === 'ch') {
             p5.ellipse(x, y, size * 1.2, size * 0.2);
-          } else if (stitch === 'sc') {
+          } else if (displayStitch === 'sc') {
             p5.line(x - 5, y + size / 2, x + 5, y + size / 2);
-          } else if (stitch === 'hdc') {
+          } else if (displayStitch === 'hdc') {
             p5.line(x - 5, y, x + 5, y);
-          } else if (stitch === 'dc') {
+          } else if (displayStitch === 'dc') {
             p5.line(x - 5, y, x + 5, y);
             p5.line(x - 3, y + size / 3, x + 3, y + 2 * size / 3);
           } else {
@@ -97,14 +98,7 @@ export function createExpertP5Instance(p5, grid, stitchesDone, isPlaying, vertic
               p5.fill(180);
             }
           }
-          if (count >= stitchesDone && isPlaying)
-            p5.fill(180);
-          p5.fill(0);
-          p5.textSize(10);
-          p5.textAlign(p5.CENTER, p5.CENTER);
-          // Display only the stitch type (without color code)
-          const displayStitch = stitch.includes('_') ? stitch.split('_')[0] : stitch;
-          p5.text(displayStitch, 0, 0);
+    
         }
       }
     
