@@ -1,4 +1,5 @@
 import { enableSelection } from './interactiveEditing.js';
+import  ContextMenu from './ContextMenu.svelte'; // Import the context menu component
 
 export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSpacing = 50, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = [], onShowContextMenu, isExpertView = false) {
     let positions = [];
@@ -17,17 +18,10 @@ let centerX, centerY;
         centerX = p5.width / 2;
         centerY = p5.height / 2;
         
-        selectionHandler = enableSelection(p5, positions_null);
+        // Remove the selection handler initialization from setup
+        // selectionHandler = enableSelection(p5, positions_null);
         
-        // Add right-click handler for context menu
-        p5.canvas.addEventListener('contextmenu', (event) => {
-            event.preventDefault();
-            const nodes = selectionHandler.getSelectedNodes();
-            if (nodes.length > 0) {
-                onShowContextMenu(event.clientX, event.clientY);
-            }
-            event.stopPropagation();
-        });
+        // We'll add the context menu handler in the draw function when we initialize the selection handler
     };
     
     p5.draw = () => {
@@ -40,6 +34,24 @@ let centerX, centerY;
         
         // Draw the round crochet pattern
         drawCrochetPattern();
+        
+        // Update the selection handler with the new positions array
+        if (!selectionHandler) {
+            selectionHandler = enableSelection(p5, positions_null);
+            
+            // Add right-click handler for context menu
+            p5.canvas.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                const nodes = selectionHandler.getSelectedNodes();
+                if (nodes.length > 0) {
+                    onShowContextMenu(event.clientX, event.clientY);
+                }
+                event.stopPropagation();
+            });
+        } else {
+            // Update the selection handler with the new positions array
+            selectionHandler.updatePositions(positions_null);
+        }
         
         if (selectionHandler) {
             selectionHandler.drawSelectionArea();
@@ -522,14 +534,6 @@ let centerX, centerY;
         // Force a redraw
         p5.redraw();
     }
-    
-    // Mouse event handlers
-    p5.mousePressed = () => {
-        // Only handle selection through the selectionHandler
-        if (selectionHandler && !selectionHandler.isCurrentlySelecting()) {
-            selectedNodes = [];
-        }
-    };
     
     // Make sure these are properly exposed
     p5.getSelectedNodes = () => {

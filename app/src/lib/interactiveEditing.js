@@ -4,6 +4,7 @@ export function enableSelection(p5Instance, positions_null) {
     let selectionStart = { x: 0, y: 0 };
     let selectionEnd = { x: 0, y: 0 };
     let selectedNodes = [];
+    let positionsRef = positions_null; // Store reference to positions array
 
     p5Instance.mousePressed = () => {
         // Only start new selection if it's a left click and not clicking on the context menu
@@ -37,7 +38,7 @@ export function enableSelection(p5Instance, positions_null) {
         const minY = Math.min(selectionStart.y, selectionEnd.y);
         const maxY = Math.max(selectionStart.y, selectionEnd.y);
 
-        positions_null.forEach(row => {
+        positionsRef.forEach(row => {
             row.forEach(node => {
                 if (node && node.stitch && 
                     node.x >= minX && node.x <= maxX &&
@@ -79,6 +80,9 @@ export function enableSelection(p5Instance, positions_null) {
         isCurrentlySelecting: () => isSelecting,
         clearSelection: () => {
             selectedNodes = [];
+        },
+        updatePositions: (newPositions) => {
+            positionsRef = newPositions;
         }
     };
 }

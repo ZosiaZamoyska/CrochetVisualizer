@@ -37,7 +37,7 @@
   let showSavePatternDialog = false;
   let newPatternName = "";
   let newPatternNotes = "";
-  let viewMode = 'expert';
+  let viewMode = 'basic';
   let crochetType = 'round';
   let shapes = [];
   let isSelecting = false;
