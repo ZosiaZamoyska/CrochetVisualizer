@@ -45,6 +45,7 @@
   let selectionEnd = { x: 0, y: 0 };
   let selectedNodes = [];
   let gridEditing = false;
+  let angle = 360;
   
   let contextMenuVisible = false;
   let contextMenuProps = {
@@ -142,7 +143,7 @@
   let interval;
   
   // Ensure canvas redraws every time patternInput or spacing changes
-  $: patternInput, verticalSpacing, horizontalSpacing, roundSpacing, chColor, scColor, dcColor, customStitches, crochetType, redrawCanvas(), formattedPattern = formatPattern();
+  $: patternInput, verticalSpacing, horizontalSpacing, roundSpacing, chColor, scColor, dcColor, customStitches, crochetType, angle, redrawCanvas(), formattedPattern = formatPattern();
   $: patternInput, formattedPattern = formatPattern();
 
   // Update pattern text when patternInput changes
@@ -1128,7 +1129,7 @@ function expandStitchName(shortName) {
       }
       if (viewMode === 'expert') {
             if (crochetType === 'round') {
-                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true), document.getElementById('p5Canvas'));
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true, angle), document.getElementById('p5Canvas'));
             } else {
                 p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
             }
@@ -1138,11 +1139,11 @@ function expandStitchName(shortName) {
             // Round view is now deprecated - we use crochetType instead
             crochetType = 'round';
             viewMode = 'basic';
-            p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false, angle), document.getElementById('p5Canvas'));
         } else {
             // Basic view
             if (crochetType === 'round') {
-                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false, angle), document.getElementById('p5Canvas'));
             } else {
                 p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
             }
@@ -1175,7 +1176,7 @@ function expandStitchName(shortName) {
         // Create a new p5 instance with the appropriate drawing function based on view mode and crochet type
         if (viewMode === 'expert') {
             if (crochetType === 'round') {
-                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true), document.getElementById('p5Canvas'));
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true, angle), document.getElementById('p5Canvas'));
             } else {
                 p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
             }
@@ -1185,11 +1186,11 @@ function expandStitchName(shortName) {
             // Round view is now deprecated - we use crochetType instead
             crochetType = 'round';
             viewMode = 'basic';
-            p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
+            p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false, angle), document.getElementById('p5Canvas'));
         } else {
             // Basic view
             if (crochetType === 'round') {
-                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false, angle), document.getElementById('p5Canvas'));
             } else {
                 p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
             }
@@ -1302,6 +1303,18 @@ function expandStitchName(shortName) {
         {/if}
         {#if crochetType === 'round'}
         <div class="slider-group">
+          <div class="slider-group">
+            <label for="angle-value">Angle: {angle}</label>
+            <input 
+              type="range" 
+              id="angle-value" 
+              min="20" 
+              max="360" 
+              bind:value={angle}
+              on:input={() => redrawCanvas()}
+              class="slider"
+            >
+          </div>
           <label for="round-spacing">Round Spacing: {roundSpacing}px</label>
           <input 
             type="range" 

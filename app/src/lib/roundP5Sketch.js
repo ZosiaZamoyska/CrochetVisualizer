@@ -1,14 +1,14 @@
 import { enableSelection } from './interactiveEditing.js';
 import  ContextMenu from './ContextMenu.svelte'; // Import the context menu component
 
-export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSpacing = 50, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = [], onShowContextMenu, isExpertView = false) {
+export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSpacing = 50, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = [], onShowContextMenu, isExpertView = false, angle = 360) {
     let positions = [];
     let positions_null = [];
     let selectionHandler;
     let selectedNodes = [];
     
     // Round crochet specific variables
-    let angle = 360; // Total angle in degrees (full circle)
+    //let angle = 360; // Total angle in degrees (full circle)
     let centerX, centerY;
     
     p5.setup = () => {
@@ -25,7 +25,6 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
     
     p5.draw = () => {
         p5.clear();
-        
         // Reset positions arrays
         positions = [];
         positions_null = [];
@@ -219,18 +218,46 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
         for (let roundIndex = 0; roundIndex < positions_null.length; roundIndex++) {
             const round = positions_null[roundIndex];
             
+            // Find all valid stitches in this round
+            const validStitches = [];
             for (let i = 0; i < round.length; i++) {
                 if (round[i].stitch) {
-                    // Find the next stitch in this round
-                    let nextIndex = (i + 1) % round.length;
-                    while (nextIndex !== i && !round[nextIndex].stitch) {
-                        nextIndex = (nextIndex + 1) % round.length;
-                    }
-                    
-                    // Draw connection to next stitch if it exists and isn't the same stitch
-                    if (nextIndex !== i && round[nextIndex].stitch) {
-                        drawRoundConnection(round[i], round[nextIndex]);
-                    }
+                    validStitches.push({
+                        index: i,
+                        position: round[i]
+                    });
+                }
+            }
+            
+            // Skip if there are no valid stitches
+            if (validStitches.length === 0) continue;
+            
+            // Connect adjacent stitches
+            for (let i = 0; i < validStitches.length - 1; i++) {
+                const current = validStitches[i].position;
+                const next = validStitches[i + 1].position;
+                
+                // Check if these stitches are too far apart (would wrap around the circle)
+                const angleDiff = Math.abs(current.theta - next.theta);
+                
+                // Only connect if the angle difference is reasonable
+                // This prevents connecting across the gap when angle < 360
+                if (angleDiff <= 360 / validStitches.length * 1.5) {
+                    drawRoundConnection(current, next);
+                }
+            }
+            
+            // Only connect the last stitch to the first one if we're making a full circle
+            if (angle >= 359 && validStitches.length > 1) {
+                const first = validStitches[0].position;
+                const last = validStitches[validStitches.length - 1].position;
+                
+                // Check if the angle between first and last is reasonable
+                const angleDiff = Math.abs(first.theta - last.theta);
+                
+                // Only connect if the angle difference is reasonable
+                if (angleDiff <= 360 / validStitches.length * 1.5 || angleDiff >= 360 - (360 / validStitches.length * 1.5)) {
+                    drawRoundConnection(last, first);
                 }
             }
         }
