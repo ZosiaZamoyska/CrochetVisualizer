@@ -1,22 +1,23 @@
 <script>
   import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
-  //import { updateDownstreamInstructions } from './+page.svelte';
+  import { updateNodeData } from '$lib/store';
 
   export let data;
+  export let id;
   let isEditing = false;
   let text = data.text;
 
   // Store connections in metadata
   const connections = useNodeConnections({
+    id,
     handleType: 'target'
   });
 
   $: nodesData = useNodesData($connections.map((connection) => connection.source));
   
   // Update metadata whenever connections change
- 
   $: if ($nodesData) {
-    data.instructions = [
+    const updatedInstructions = [
       ...$nodesData.flatMap(node => {
         if (node.type === 'text') {
           return [{
@@ -31,8 +32,14 @@
         content: data.text
       }
     ];
-    console.log('data.instructions in text node');
-    console.log(data.instructions);
+    
+    data.instructions = updatedInstructions;
+    
+    // Update the node data store to trigger propagation
+    updateNodeData(id, {
+      ...data,
+      instructions: updatedInstructions
+    });
   }
 
   function handleDoubleClick() {
@@ -41,33 +48,40 @@
 
   function handleBlur() {
     isEditing = false;
-    data.text = text;
-    // Update instructions with new text
-    data.instructions = [{
-      type: 'text',
-      content: text
-    }];
+    updateText();
   }
 
   function handleKeydown(event) {
     if (event.key === 'Enter') {
       isEditing = false;
-      data.text = text;
-      // Update instructions with new text
-      data.instructions = [{
-        type: 'text',
-        content: text
-      }];
+      updateText();
     }
+  }
+  
+  function updateText() {
+    data.text = text;
+    
+    // Update instructions with new text
+    const updatedInstructions = [{
+      type: 'text',
+      content: text
+    }];
+    
+    data.instructions = updatedInstructions;
+    
+    // Update the node data store to trigger propagation
+    updateNodeData(id, {
+      ...data,
+      text,
+      instructions: updatedInstructions
+    });
   }
 </script>
 
 <div class="text-node" on:dblclick={handleDoubleClick}>
   <Handle type="target" position={Position.Left} />
   
-  <div 
-    class="text-container"
-  >
+  <div class="text-container">
     {#if isEditing}
       <input
         type="text"
@@ -81,7 +95,6 @@
     {/if}
   </div>
   
-
   <Handle type="source" position={Position.Right} />
 </div>
 

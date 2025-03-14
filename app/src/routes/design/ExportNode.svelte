@@ -1,6 +1,7 @@
 <script>
   import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
   import { exportPatternToPDF } from '$lib/utils/export';
+  import { nodeDataStore } from '$lib/store';
   export let data;
   export let id;
 
@@ -11,24 +12,34 @@
 
   $: nodesData = useNodesData($connections.map((connection) => connection.source));
   
-  // Update metadata whenever connections change
-  $: if ($nodesData) {
-    data.instructions = [
-      ...$nodesData.flatMap(node => {
-        if (node.type === 'text') {
-          return [{
-            type: 'text',
-            content: node.data.text
-          }];
-        }
-        return node.data.instructions || [];
-      })
-    ];
-    console.log(data.instructions);
+  // Subscribe to the nodeDataStore to get updated data
+  let storeData;
+  nodeDataStore.subscribe(store => {
+    storeData = store;
+  });
+  
+  // Update metadata whenever connections change or nodeDataStore updates
+  $: if ($nodesData && storeData) {
+    // Collect instructions from all connected nodes
+    const instructions = [];
+    
+    $connections.forEach(connection => {
+      const sourceId = connection.source;
+      const sourceData = storeData[sourceId];
+      
+      if (sourceData && sourceData.instructions) {
+        instructions.push(...sourceData.instructions);
+      }
+    });
+    
+    // Update the node data with the collected instructions
+    data.instructions = instructions;
+    console.log('Export node instructions updated:', data.instructions);
   }
+  
   async function handleExport() {
     try {
-          await exportPatternToPDF(data.instructions);
+      await exportPatternToPDF(data.instructions);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Failed to export pattern. Please check the console for details.');
@@ -40,7 +51,6 @@
   <Handle type="target" position={Position.Left} />
   
   <div class="export-container">
-
     <button 
       class="export-button"
       on:click={handleExport}
@@ -48,8 +58,11 @@
     >
       Export Pattern
     </button>
+    
+    {#if data.instructions && data.instructions.length > 0}
+      <div class="preview-badge">{data.instructions.length} items</div>
+    {/if}
   </div>
-
 </div>
 
 <style>
@@ -73,59 +86,19 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    position: relative;
   }
 
-  .preview-content {
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 8px;
-    background: white;
-    border-radius: 4px;
-    border: 1px solid #eee;
-  }
-
-  .no-connections {
-    color: #666;
-    font-style: italic;
-    text-align: center;
-    padding: 8px;
-  }
-
-  .connections-preview {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .preview-title {
-    font-weight: 500;
-    color: #333;
-    margin-bottom: 4px;
-  }
-
-  .pattern-preview {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px;
-  }
-
-  .pattern-name {
-    font-weight: 500;
-    margin-bottom: 4px;
-  }
-
-  .pattern-text {
-    white-space: pre-line;
-    font-family: monospace;
+  .preview-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--primary-color, #4299e1);
+    color: white;
     font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .text-preview {
-    padding: 8px;
-    background: #f0f0f0;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: bold;
   }
 
   .export-button {

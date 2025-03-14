@@ -187,6 +187,79 @@ export async function exportPatternToPDF(instructions) {
           currentY[initialColumn] += 7 + 5; // Line height + spacing
         }
       });
+    } else if (item.type === 'image') {
+      // Handle uploaded image
+      if (item.imageUrl) {
+        const imagePromise = new Promise((resolve) => {
+          const img = new Image();
+          img.src = item.imageUrl;
+
+          img.onload = function () {
+            const imgNaturalWidth = img.naturalWidth;
+            const imgNaturalHeight = img.naturalHeight;
+
+            const maxWidth = 80;
+            let imgWidth = imgNaturalWidth;
+            let imgHeight = imgNaturalHeight;
+
+            if (imgWidth > maxWidth) {
+              const scale = maxWidth / imgWidth;
+              imgWidth *= scale;
+              imgHeight *= scale;
+            }
+
+            resolve({
+              src: img.src,
+              width: imgWidth,
+              height: imgHeight,
+              column: initialColumn,
+              x: initialColumn === 0 ? 20 : 110,
+              caption: item.caption
+            });
+          };
+
+          img.onerror = function () {
+            console.error('Failed to load image');
+            resolve(null);
+          };
+        });
+
+        imagePromises.push(imagePromise);
+        contentQueue.push({
+          type: 'uploaded-image',
+          column: initialColumn,
+          fn: async (imageData) => {
+            if (imageData) {
+              if (currentY[imageData.column] + imageData.height + 15 > 270) {
+                if (currentColumn === 0) {
+                  currentColumn = 1;
+                  currentY[1] = startY;
+                } else {
+                  currentColumn = 0;
+                  doc.addPage();
+                  currentY = [startY, startY];
+                }
+              }
+              
+              doc.addImage(imageData.src, 'PNG', imageData.x, currentY[imageData.column], imageData.width, imageData.height);
+              currentY[imageData.column] += imageData.height + 5;
+              
+              // Add caption if available
+              if (imageData.caption) {
+                doc.setFontSize(10);
+                doc.setTextColor('#666666');
+                const captionLines = doc.splitTextToSize(imageData.caption, 80);
+                doc.text(captionLines, imageData.x, currentY[imageData.column], { align: 'center' });
+                currentY[imageData.column] += captionLines.length * 5 + 10;
+              }
+              
+              // Reset text color
+              doc.setTextColor('#000000');
+              doc.setFontSize(12);
+            }
+          }
+        });
+      }
     }
   }
 
@@ -196,7 +269,7 @@ export async function exportPatternToPDF(instructions) {
   // Generate PDF content
   let imageIndex = 0;
   for (const item of contentQueue) {
-    if (item.fn.length > 0) { // If function expects parameter (image data)
+    if (item.type === 'image' || item.type === 'uploaded-image') {
       await item.fn(imageResults[imageIndex++]);
     } else {
       item.fn();

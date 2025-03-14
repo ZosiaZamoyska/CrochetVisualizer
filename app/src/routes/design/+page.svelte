@@ -9,16 +9,41 @@
     addEdge
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import { patternToLoad } from '$lib/store';
+  import { patternToLoad, nodeDataStore, updateNodeData } from '$lib/store';
+  import { propagateData } from '$lib/NodeDataPropagation';
   import PatternNode from './PatternNode.svelte';
   import TextNode from './TextNode.svelte';
   import ExportNode from './ExportNode.svelte';
   import FileNameNode from './FileNameNode.svelte';
   import ColorNode from './ColorNode.svelte';
+  import ImageNode from './ImageNode.svelte';
+  
   let savedPatterns = [];
   const nodes = writable([]);
   const edges = writable([]);
   let nextNodeId = 1;
+  let nodesInitialized = false;
+
+  // Watch for changes in nodes
+  $: if ($nodes.length > 0 && !nodesInitialized) {
+    nodesInitialized = true;
+    // Initialize node data in the store
+    $nodes.forEach(node => {
+      updateNodeData(node.id, node.data);
+    });
+  }
+
+  // Watch for changes in edges
+  $: if ($edges.length > 0) {
+    // For each edge, propagate data from source to target
+    $edges.forEach(edge => {
+      propagateData({
+        edges: $edges,
+        nodes: $nodes,
+        sourceId: edge.source
+      });
+    });
+  }
 
   const instructions = [
     {
@@ -40,11 +65,13 @@
       id: 'export-button',
       name: 'Export Button',
       type: 'export'  
+    },
+    {
+      id: 'image-upload',
+      name: 'Image Upload',
+      type: 'image'
     }
   ];
-
-
-
 
   // Function to add a new pattern node to the canvas
   function addPatternNode(pattern, position) {
@@ -72,6 +99,9 @@
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
+    
+    // Add node data to store
+    updateNodeData(newNode.id, newNode.data);
   }
 
   // Function to add a new text box node to the canvas
@@ -93,6 +123,9 @@
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
+    
+    // Add node data to store
+    updateNodeData(newNode.id, newNode.data);
   }
 
   function addExportNode(position) {
@@ -109,6 +142,9 @@
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
+    
+    // Add node data to store
+    updateNodeData(newNode.id, newNode.data);
   }
 
   function addFileNameNode(position) {
@@ -129,6 +165,9 @@
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
+    
+    // Add node data to store
+    updateNodeData(newNode.id, newNode.data);
   }
 
   function addColorNode(position) {
@@ -151,6 +190,30 @@
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
+    
+    // Add node data to store
+    updateNodeData(newNode.id, newNode.data);
+  }
+
+  function addImageNode(position) {
+    const newNode = {
+      id: `node-${nextNodeId}`,
+      type: 'image',
+      position,
+      data: { 
+        id: `node-${nextNodeId}`,
+        label: 'Image',
+        imageUrl: null,
+        caption: '',
+        instructions: []
+      }
+    };
+    
+    nextNodeId++;
+    $nodes = [...$nodes, newNode];
+    
+    // Add node data to store
+    updateNodeData(newNode.id, newNode.data);
   }
 
   // Handle drag and drop from pattern menu
@@ -175,6 +238,8 @@
       addFileNameNode(position);
     } else if (item.type === 'color') {
       addColorNode(position);
+    } else if (item.type === 'image') {
+      addImageNode(position);
     } else {
       addPatternNode(item, position);
     }
@@ -189,7 +254,31 @@
       
       // Update edges using addEdge helper
       $edges = addEdge(params, $edges);
+      
+      // Trigger data propagation
+      setTimeout(() => {
+        propagateData({
+          edges: $edges,
+          nodes: $nodes,
+          sourceId: params.source
+        });
+      }, 0);
+    }
+  }
 
+  // Handle node changes
+  function handleNodeChange(event) {
+    // If a node's data has changed, update the store and propagate
+    if (event.detail.node && event.detail.node.data) {
+      const nodeId = event.detail.node.id;
+      updateNodeData(nodeId, event.detail.node.data);
+      
+      // Propagate data to connected nodes
+      propagateData({
+        edges: $edges,
+        nodes: $nodes,
+        sourceId: nodeId
+      });
     }
   }
 
@@ -242,6 +331,11 @@
     // Set initial nodes
     $nodes = initialNodes;
     nextNodeId = 3; // Set nextNodeId to 3 since we used 1 and 2
+    
+    // Initialize node data in the store
+    initialNodes.forEach(node => {
+      updateNodeData(node.id, node.data);
+    });
   });
 
   // Flow configuration
@@ -252,7 +346,8 @@
       text: TextNode,
       export: ExportNode,
       fileName: FileNameNode,
-      color: ColorNode
+      color: ColorNode,
+      image: ImageNode
     },
     defaultEdgeOptions: {
       type: 'default',
@@ -303,6 +398,7 @@
       fitView={flowConfig.fitView}
       defaultEdgeOptions={flowConfig.defaultEdgeOptions}
       on:connect={handleConnect}
+      on:nodechange={handleNodeChange}
     >
       <Background />
       <Controls />
