@@ -29,8 +29,8 @@
         formattedPattern: data.pattern.formattedPattern
       }
     ];
-    console.log(data.instructions);
-  }
+    console.log('data.instructions in pattern node');
+    console.log(data.instructions);  }
 
   function handleLoad() {
     window.loadPattern(data.id);

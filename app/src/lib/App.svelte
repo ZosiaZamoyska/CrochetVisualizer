@@ -5,6 +5,7 @@
   import { createBasicP5Instance } from './basicP5Sketch.js';
   import { createPhysicsP5Instance } from './physicsp5Sketch.js';
   import { createExpertP5Instance } from './expertP5Sketch.js';
+  import { createRoundP5Instance } from './roundP5Sketch.js';
   import { enableSelection } from './interactiveEditing.js';
   import { gridToPattern } from './parser.js';
   import { patternToLoad } from '$lib/store';
@@ -22,6 +23,7 @@
   let status = "waiting";
   let verticalSpacing = 15;
   let horizontalSpacing = 15;
+  let roundSpacing = 50;
   let showSettings = false;
   let chColor = "#00DC00";
   let scColor = "#00C800";
@@ -36,6 +38,7 @@
   let newPatternName = "";
   let newPatternNotes = "";
   let viewMode = 'basic';
+  let crochetType = 'flat';
   let shapes = [];
   let isSelecting = false;
   let selectionStart = { x: 0, y: 0 };
@@ -110,12 +113,22 @@
     "Normal Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc sc sc sc sc ch sc sc sc sc sc ch sc sc sc sc sc",
     "Exaggerated Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc",
     "Up-Down Wave": "ch ch ch ch ch ch sc dc sc dc sc ch dc sc dc sc dc ch sc dc sc dc sc ch dc sc dc sc dc",
-    "Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc"
+    "Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc",
+    "Round - Basic Circle": "ch ch ch ch ch ch sc sc sc sc sc sc",
+    "Round - Increasing Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc sc",
+    "Round - Two Round Circle": "ch ch ch ch ch ch sc sc sc sc sc sc dc dc dc dc dc dc dc dc dc dc dc dc"
   };
 
   // Function to update patternInput and parse the pattern
   function selectPattern(event) {
     patternInput = event.target.value;
+    
+    // Automatically switch to round view for round patterns
+    const selectedPattern = event.target.options[event.target.selectedIndex].text;
+    if (selectedPattern.startsWith("Round -")) {
+      crochetType = 'round';
+    }
+    
     parsePattern(patternInput);
   }
 
@@ -126,7 +139,7 @@
   let interval;
   
   // Ensure canvas redraws every time patternInput or spacing changes
-  $: patternInput, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, redrawCanvas(), formattedPattern = formatPattern();
+  $: patternInput, verticalSpacing, horizontalSpacing, roundSpacing, chColor, scColor, dcColor, customStitches, crochetType, redrawCanvas(), formattedPattern = formatPattern();
   $: patternInput, formattedPattern = formatPattern();
 
   // Update pattern text when patternInput changes
@@ -404,16 +417,96 @@ function expandStitchName(shortName) {
     showSavePatternDialog = true;
   }
 
-  function confirmSavePattern() {
+  function createVirtualChart() {
+    // Create a virtual canvas
+    const virtualCanvas = document.createElement('canvas');
+    const ctx = virtualCanvas.getContext('2d');
+    
+    // Set canvas size based on grid dimensions
+    const cellSize = 20; // Base size for each stitch
+    const padding = 10;
+    
+    // Calculate required canvas size based on grid
+    const width = (grid[0]?.length || 1) * cellSize + (2 * padding);
+    const height = (grid.length || 1) * cellSize + (2 * padding);
+    
+    virtualCanvas.width = width;
+    virtualCanvas.height = height;
+    
+    // Set background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw grid
+    grid.forEach((row, rowIndex) => {
+      row.forEach((stitch, colIndex) => {
+        if (stitch) {
+          // Get color based on stitch type
+          let color;
+          switch (stitch) {
+            case 'ch':
+              color = chColor;
+              break;
+            case 'sc':
+              color = scColor;
+              break;
+            case 'dc':
+              color = dcColor;
+              break;
+            default:
+              const customStitch = customStitches.find(s => s.name === stitch);
+              color = customStitch ? customStitch.color : '#000000';
+          }
+          
+          // Draw stitch
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(
+            padding + colIndex * cellSize + cellSize/2,
+            padding + rowIndex * cellSize + cellSize/2,
+            cellSize/3,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+          
+          // Draw connections
+          if (rowIndex > 0 && grid[rowIndex-1][colIndex]) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(
+              padding + colIndex * cellSize + cellSize/2,
+              padding + rowIndex * cellSize + cellSize/2
+            );
+            ctx.lineTo(
+              padding + colIndex * cellSize + cellSize/2,
+              padding + (rowIndex-1) * cellSize + cellSize/2
+            );
+            ctx.stroke();
+          }
+        }
+      });
+    });
+    
+    return virtualCanvas;
+  }
+
+  async function confirmSavePattern() {
     if (!newPatternName.trim()) {
       alert('Please enter a pattern name');
       return;
     }
 
-    // Get the canvas
+    // Get the preview canvas
     const canvas = document.querySelector('#p5Canvas canvas');
     let previewImage = null;
+    let chart = null;
 
+    // Store original view mode
+    const originalViewMode = viewMode;
+
+    // Handle preview image
     if (canvas) {
       const ctx = canvas.getContext('2d');
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -460,7 +553,66 @@ function expandStitchName(shortName) {
       }
     }
 
-    // Prepare pattern data with preview image (cropped)
+    // Temporarily switch to expert view and capture chart
+    viewMode = 'expert';
+    await createCanvasInstance(); // Wait for canvas to update
+    
+    // Small delay to ensure canvas is fully rendered
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Capture and crop the expert view
+    const expertCanvas = document.querySelector('#p5Canvas canvas');
+    if (expertCanvas) {
+      const expertCtx = expertCanvas.getContext('2d');
+      const expertImageData = expertCtx.getImageData(0, 0, expertCanvas.width, expertCanvas.height);
+      const expertPixels = expertImageData.data;
+
+      let minX = expertCanvas.width, minY = expertCanvas.height;
+      let maxX = 0, maxY = 0;
+      let hasDrawing = false;
+
+      // Detect the drawn (non-transparent) area
+      for (let y = 0; y < expertCanvas.height; y++) {
+        for (let x = 0; x < expertCanvas.width; x++) {
+          const i = (y * expertCanvas.width + x) * 4;
+          const alpha = expertPixels[i + 3]; // alpha channel
+          if (alpha !== 0) { // Non-transparent pixel
+            hasDrawing = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      // If something is drawn, create cropped image
+      if (hasDrawing) {
+        const width = maxX - minX + 1;
+        const height = maxY - minY + 1;
+
+        // Temporary canvas to hold cropped image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Copy cropped area into temp canvas
+        tempCtx.putImageData(expertCtx.getImageData(minX, minY, width, height), 0, 0);
+
+        // Convert to image URL
+        chart = tempCanvas.toDataURL('image/png');
+      } else {
+        // If nothing drawn, fallback to full canvas
+        chart = expertCanvas.toDataURL('image/png');
+      }
+    }
+
+    // Switch back to original view mode
+    viewMode = originalViewMode;
+    await createCanvasInstance();
+
+    // Prepare pattern data with preview image and chart
     const patternData = {
       id: Date.now(),
       name: newPatternName.trim(),
@@ -468,6 +620,7 @@ function expandStitchName(shortName) {
       pattern: patternInput,
       timestamp: new Date().toISOString(),
       preview: previewImage,
+      chart: chart,
       formattedPattern: formattedPattern,
       grid: grid,
       colors: {
@@ -479,8 +632,10 @@ function expandStitchName(shortName) {
       stitchesType: stitchesType,
       spacing: {
         vertical: verticalSpacing,
-        horizontal: horizontalSpacing
-      }
+        horizontal: horizontalSpacing,
+        round: roundSpacing
+      },
+      crochetType: crochetType
     };
 
     // Save to localStorage
@@ -518,6 +673,17 @@ function expandStitchName(shortName) {
         stitchesType = pattern.stitchesType;
         verticalSpacing = pattern.spacing.vertical;
         horizontalSpacing = pattern.spacing.horizontal;
+        
+        // Load round spacing and crochet type if available
+        if (pattern.spacing.round) {
+            roundSpacing = pattern.spacing.round;
+        }
+        if (pattern.crochetType) {
+            crochetType = pattern.crochetType;
+        } else if (pattern.name.toLowerCase().includes('round')) {
+            // For backward compatibility with older patterns
+            crochetType = 'round';
+        }
 
         // Call parsePattern to update the grid
         parsePattern(patternInput.trim());
@@ -638,12 +804,22 @@ function expandStitchName(shortName) {
       }
       console.log(grid);
       if (viewMode === 'expert') {
-            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            if (crochetType === 'round') {
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true), document.getElementById('p5Canvas'));
+            } else {
+                p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            }
         } else if (viewMode === 'physics') {
             p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+        } else if (viewMode === 'round') {
+            p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
         } else {
             // Basic view
-            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            if (crochetType === 'round') {
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
+            } else {
+                p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            }
         }
     }
 
@@ -670,14 +846,27 @@ function expandStitchName(shortName) {
             p5Instance.remove(); // Remove existing instance
         }
 
-        // Create a new p5 instance with the appropriate drawing function based on view mode
+        // Create a new p5 instance with the appropriate drawing function based on view mode and crochet type
         if (viewMode === 'expert') {
-            p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            if (crochetType === 'round') {
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, true), document.getElementById('p5Canvas'));
+            } else {
+                p5Instance = new p5((p) => createExpertP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            }
         } else if (viewMode === 'physics') {
             p5Instance = new p5((p) => createPhysicsP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+        } else if (viewMode === 'round') {
+            // Round view is now deprecated - we use crochetType instead
+            crochetType = 'round';
+            viewMode = 'basic';
+            p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
         } else {
             // Basic view
-            p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            if (crochetType === 'round') {
+                p5Instance = new p5((p) => createRoundP5Instance(p, grid, stitchesDone, isPlaying, roundSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu, false), document.getElementById('p5Canvas'));
+            } else {
+                p5Instance = new p5((p) => createBasicP5Instance(p, grid, stitchesDone, isPlaying, verticalSpacing, horizontalSpacing, chColor, scColor, dcColor, customStitches, showContextMenu), document.getElementById('p5Canvas'));
+            }
         }
     }
   }
@@ -735,6 +924,31 @@ function expandStitchName(shortName) {
             <option value="expert">Expert View</option>
           </select>
         </div>
+        
+        <div class="slider-group">
+          <label for="crochet-type">Crochet Type:</label>
+          <div class="toggle-container">
+            <label class="toggle-label">
+              <input 
+                type="radio" 
+                name="crochet-type" 
+                value="flat" 
+                bind:group={crochetType}
+              >
+              <span>Flat</span>
+            </label>
+            <label class="toggle-label">
+              <input 
+                type="radio" 
+                name="crochet-type" 
+                value="round" 
+                bind:group={crochetType}
+              >
+              <span>Round</span>
+            </label>
+          </div>
+        </div>
+        
         <div class="slider-group">
           <label for="vertical-spacing">Vertical Spacing: {verticalSpacing}px</label>
           <input 
@@ -757,6 +971,19 @@ function expandStitchName(shortName) {
             class="slider"
           >
         </div>
+        {#if crochetType === 'round'}
+        <div class="slider-group">
+          <label for="round-spacing">Round Spacing: {roundSpacing}px</label>
+          <input 
+            type="range" 
+            id="round-spacing" 
+            min="20" 
+            max="100" 
+            bind:value={roundSpacing}
+            class="slider"
+          >
+        </div>
+        {/if}
         <div class="color-pickers-container">
           <div class="color-group">
             <label for="ch-color">ch</label>
@@ -981,5 +1208,47 @@ function expandStitchName(shortName) {
 
   .dropdown-item:hover {
     background-color: #f0f0f0;
+  }
+  
+  /* Crochet type toggle styling */
+  .toggle-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+  }
+  
+  .toggle-label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 4px;
+    background-color: #f0f0f0;
+    transition: all 0.2s;
+  }
+  
+  .toggle-label input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+  }
+  
+  .toggle-label input:checked + span {
+    font-weight: bold;
+  }
+  
+  .toggle-label:has(input:checked) {
+    background-color: #4CAF50;
+    color: white;
+  }
+  
+  .toggle-label:hover {
+    background-color: #e0e0e0;
+  }
+  
+  .toggle-label:has(input:checked):hover {
+    background-color: #3e8e41;
   }
 </style>

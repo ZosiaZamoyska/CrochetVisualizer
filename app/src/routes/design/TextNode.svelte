@@ -31,6 +31,7 @@
         content: data.text
       }
     ];
+    console.log('data.instructions in text node');
     console.log(data.instructions);
   }
 

@@ -8,6 +8,8 @@ export async function exportPatternToPDF(instructions) {
   if (fileNameInstruction) {
     fileName = fileNameInstruction.fileName;
   }
+  console.log('instructions_export');
+  console.log(instructions);
 
   const doc = new jsPDF();
   let startY = 20;
@@ -167,15 +169,22 @@ export async function exportPatternToPDF(instructions) {
           const columnX = initialColumn === 0 ? 20 : 110;
           const maxWidth = 80;
           
+          // First add the prefix in black
+          doc.setFontSize(14);
+          doc.setTextColor('#000000');
+          doc.text('Yarn color: ', columnX, currentY[initialColumn]);
+          
+          // Get the width of the prefix to know where to start the colored text
+          const prefixWidth = doc.getTextWidth('Yarn color: ');
+          
           // Add color name in the selected color
           doc.setTextColor(item.color);
-          const splitText = doc.splitTextToSize(`Yarn color: ${item.colorName}`, maxWidth);
-          doc.text(splitText, columnX, currentY[initialColumn]);
+          doc.text(item.colorName, columnX + prefixWidth, currentY[initialColumn]);
           
           // Reset text color to black
           doc.setTextColor('#000000');
           
-          currentY[initialColumn] += splitText.length * 7 + 5;
+          currentY[initialColumn] += 7 + 5; // Line height + spacing
         }
       });
     }

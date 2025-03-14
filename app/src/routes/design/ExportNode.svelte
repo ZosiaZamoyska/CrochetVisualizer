@@ -40,25 +40,6 @@
   <Handle type="target" position={Position.Left} />
   
   <div class="export-container">
-    <div class="preview-content">
-      {#if !data.instructions || data.instructions.length === 0}
-        <div class="no-connections">No connected nodes</div>
-      {:else}
-        <div class="connections-preview">
-          <div class="preview-title">Pattern Preview:</div>
-          {#each data.instructions as item}
-            {#if item.type === 'pattern'}
-              <div class="pattern-preview">
-                <div class="pattern-name">{item.name}</div>
-                <div class="pattern-text">{item.instruction}</div>
-              </div>
-            {:else if item.type === 'text'}
-              <div class="text-preview">{item.instruction}</div>
-            {/if}
-          {/each}
-        </div>
-      {/if}
-    </div>
 
     <button 
       class="export-button"
