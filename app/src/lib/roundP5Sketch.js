@@ -9,24 +9,22 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
     
     // Round crochet specific variables
     let angle = 360; // Total angle in degrees (full circle)
-let centerX, centerY;
+    let centerX, centerY;
     
     p5.setup = () => {
         p5.createCanvas(800, 600);
-        //p5.background(255);
         p5.angleMode(p5.DEGREES);
         centerX = p5.width / 2;
         centerY = p5.height / 2;
         
-        // Remove the selection handler initialization from setup
-        // selectionHandler = enableSelection(p5, positions_null);
-        
-        // We'll add the context menu handler in the draw function when we initialize the selection handler
+        // We'll initialize the selection handler in the draw function
+        // to ensure it has the correct reference to positions_null
     };
+    
+    // Remove the p5.mousePressed override to allow the selection handler to work properly
     
     p5.draw = () => {
         p5.clear();
-        //p5.background(255);
         
         // Reset positions arrays
         positions = [];
@@ -85,8 +83,15 @@ let centerX, centerY;
                     const x = centerX + p5.cos(theta) * radius;
                     const y = centerY + p5.sin(theta) * radius;
                     
-                    // Create position object
-                    const posObj = { x, y, stitch, theta };
+                    // Create position object with grid coordinates for reference
+                    const posObj = { 
+                        x, 
+                        y, 
+                        stitch, 
+                        theta,
+                        gridRow: roundIndex,  // Store grid coordinates
+                        gridCol: colIndex
+                    };
                     
                     // Check if this position has a custom color in the colorMap
                     if (grid.colorMap && grid.colorMap[`${roundIndex}-${colIndex}`]) {
@@ -98,7 +103,14 @@ let centerX, centerY;
                     stitchIndex++;
                 } else {
                     // For null stitches, still need a placeholder
-                    positions_null_round.push({ x: 0, y: 0, stitch: null, theta: 0 });
+                    positions_null_round.push({ 
+                        x: 0, 
+                        y: 0, 
+                        stitch: null, 
+                        theta: 0,
+                        gridRow: roundIndex,
+                        gridCol: colIndex
+                    });
                 }
             }
             
@@ -472,12 +484,9 @@ let centerX, centerY;
         }
         
         nodes.forEach(node => {
-            for (let roundIndex = 0; roundIndex < grid.length; roundIndex++) {
-                for (let colIndex = 0; colIndex < grid[roundIndex].length; colIndex++) {
-                    if (positions_null[roundIndex][colIndex] === node) {
-                        grid[roundIndex][colIndex] = null;
-                    }
-                }
+            // Use the stored grid coordinates to find the node in the grid
+            if (node.gridRow !== undefined && node.gridCol !== undefined) {
+                grid[node.gridRow][node.gridCol] = null;
             }
         });
         
@@ -496,19 +505,13 @@ let centerX, centerY;
         }
         
         nodes.forEach(node => {
-            for (let roundIndex = 0; roundIndex < grid.length; roundIndex++) {
-                for (let colIndex = 0; colIndex < grid[roundIndex].length; colIndex++) {
-                    if (positions_null[roundIndex][colIndex] === node) {
-                        // Find the first available position in the grid to insert the new node
-                        let inserted = false;
-                        for (let r = 0; r < grid.length && !inserted; r++) {
-                            for (let c = 0; c < grid[r].length && !inserted; c++) {
-                                if (!grid[r][c]) { // Check for an empty spot
-                                    grid[r][c] = node.stitch; // Place the stitch type in the grid
-                                    inserted = true; // Mark as inserted
-                                }
-                            }
-                        }
+            // Find the first available position in the grid to insert the new node
+            let inserted = false;
+            for (let r = 0; r < grid.length && !inserted; r++) {
+                for (let c = 0; c < grid[r].length && !inserted; c++) {
+                    if (!grid[r][c]) { // Check for an empty spot
+                        grid[r][c] = node.stitch; // Place the stitch type in the grid
+                        inserted = true; // Mark as inserted
                     }
                 }
             }
@@ -521,13 +524,9 @@ let centerX, centerY;
     function changeStitchType(nodes, stitchType) {
         // Update the nodes with the new stitch type
         nodes.forEach(node => {
-            // Find and update the node in the grid
-            for (let roundIndex = 0; roundIndex < grid.length; roundIndex++) {
-                for (let colIndex = 0; colIndex < grid[roundIndex].length; colIndex++) {
-                    if (positions_null[roundIndex][colIndex] === node) {
-                        grid[roundIndex][colIndex] = stitchType; // Update to the new stitch type
-                    }
-                }
+            // Use the stored grid coordinates to update the stitch type
+            if (node.gridRow !== undefined && node.gridCol !== undefined) {
+                grid[node.gridRow][node.gridCol] = stitchType;
             }
         });
         
@@ -556,17 +555,13 @@ let centerX, centerY;
         }
         
         nodes.forEach(node => {
-            // Find the position of this node in the grid
-            for (let roundIndex = 0; roundIndex < positions_null.length; roundIndex++) {
-                for (let colIndex = 0; colIndex < positions_null[roundIndex].length; colIndex++) {
-                    if (positions_null[roundIndex][colIndex] === node) {
-                        // Store the color in the colorMap using the position as the key
-                        grid.colorMap[`${roundIndex}-${colIndex}`] = color;
-                        
-                        // Also update the node's customColor property for immediate visual feedback
-                        node.customColor = color;
-                    }
-                }
+            // Use the stored grid coordinates to update the color
+            if (node.gridRow !== undefined && node.gridCol !== undefined) {
+                // Store the color in the colorMap using the position as the key
+                grid.colorMap[`${node.gridRow}-${node.gridCol}`] = color;
+                
+                // Also update the node's customColor property for immediate visual feedback
+                node.customColor = color;
             }
         });
         
