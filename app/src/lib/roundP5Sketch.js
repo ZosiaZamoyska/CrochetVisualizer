@@ -8,7 +8,7 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
     
     // Round crochet specific variables
     let angle = 360; // Total angle in degrees (full circle)
-    let centerX, centerY;
+let centerX, centerY;
     
     p5.setup = () => {
         p5.createCanvas(800, 600);
@@ -87,7 +87,9 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
         }
         
         // Draw connections between rounds
-        drawConnections();
+        if (!isExpertView) {
+            drawConnections();
+        }
         
         // Draw stitches
         let count = 0;
@@ -108,33 +110,76 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
             const prevRound = positions_null[roundIndex - 1];
             const currentRound = positions_null[roundIndex];
             
-            for (let i = 0; i < currentRound.length; i++) {
-                if (currentRound[i].stitch) {
-                    // Find the closest stitch in the previous round
-                    let closestIndex = 0;
-                    let closestDist = Number.MAX_VALUE;
+            // Get valid stitches from both rounds (excluding nulls and chains in current round)
+            const validPrevStitches = prevRound.filter(pos => pos.stitch !== null);
+            const validCurrentStitches = currentRound.filter(pos => pos.stitch !== null && pos.stitch !== 'ch');
+            
+            if (validPrevStitches.length === 0 || validCurrentStitches.length === 0) continue;
+            
+            // Calculate the ideal number of connections per previous stitch
+            const connectionsPerPrevStitch = Math.ceil(validCurrentStitches.length / validPrevStitches.length);
+            
+            // Track how many connections each previous stitch has
+            const connectionCounts = new Array(validPrevStitches.length).fill(0);
+            
+            // Track which current stitches have been connected
+            const connectedCurrentStitches = new Set();
+            
+            // First pass: Connect each current stitch to its closest previous stitch
+            // as long as the previous stitch hasn't exceeded its connection limit
+            for (let i = 0; i < validCurrentStitches.length; i++) {
+                const currentStitch = validCurrentStitches[i];
+                
+                // Find the closest previous stitch that hasn't reached its connection limit
+                let closestIndex = -1;
+                let closestDist = Number.MAX_VALUE;
+                
+                for (let j = 0; j < validPrevStitches.length; j++) {
+                    if (connectionCounts[j] >= connectionsPerPrevStitch) continue;
                     
-                    for (let j = 0; j < prevRound.length; j++) {
-                        if (prevRound[j].stitch) {
-                            const dist = p5.dist(
-                                currentRound[i].x, 
-                                currentRound[i].y, 
-                                prevRound[j].x, 
-                                prevRound[j].y
-                            );
-                            
-                            if (dist < closestDist) {
-                                closestDist = dist;
-                                closestIndex = j;
-                            }
-                        }
-                    }
+                    const prevStitch = validPrevStitches[j];
+                    const dist = p5.dist(
+                        currentStitch.x, 
+                        currentStitch.y, 
+                        prevStitch.x, 
+                        prevStitch.y
+                    );
                     
-                    // Draw connection to closest stitch in previous round
-                    if (prevRound[closestIndex].stitch) {
-                        drawConnection(currentRound[i], prevRound[closestIndex]);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestIndex = j;
                     }
                 }
+                
+                // If we found a valid previous stitch, connect to it
+                if (closestIndex !== -1) {
+                    drawConnection(currentStitch, validPrevStitches[closestIndex]);
+                    connectionCounts[closestIndex]++;
+                    connectedCurrentStitches.add(i);
+                }
+            }
+            
+            // Second pass: Connect any remaining current stitches
+            // to the previous stitches with the fewest connections
+            for (let i = 0; i < validCurrentStitches.length; i++) {
+                if (connectedCurrentStitches.has(i)) continue;
+                
+                const currentStitch = validCurrentStitches[i];
+                
+                // Find the previous stitch with the fewest connections
+                let minConnectionsIndex = 0;
+                let minConnections = connectionCounts[0];
+                
+                for (let j = 1; j < validPrevStitches.length; j++) {
+                    if (connectionCounts[j] < minConnections) {
+                        minConnections = connectionCounts[j];
+                        minConnectionsIndex = j;
+                    }
+                }
+                
+                // Connect to the previous stitch with the fewest connections
+                drawConnection(currentStitch, validPrevStitches[minConnectionsIndex]);
+                connectionCounts[minConnectionsIndex]++;
             }
         }
         

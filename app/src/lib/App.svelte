@@ -114,9 +114,9 @@
     "Exaggerated Wave": "ch ch ch ch ch ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc ch sc dc sc dc sc",
     "Up-Down Wave": "ch ch ch ch ch ch sc dc sc dc sc ch dc sc dc sc dc ch sc dc sc dc sc ch dc sc dc sc dc",
     "Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc",
-    "Round - Basic Circle": "ch ch ch ch ch ch sc sc sc sc sc sc",
+    "Round - Basic Circle": "ch ch ch ch ch ch sc sc sc sc sc",
     "Round - Increasing Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc sc",
-    "Round - Two Round Circle": "ch ch ch ch ch ch sc sc sc sc sc sc dc dc dc dc dc dc dc dc dc dc dc dc"
+    "Round - Two Round Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc ch sc sc sc sc sc sc sc sc sc sc sc"
   };
 
   // Function to update patternInput and parse the pattern
