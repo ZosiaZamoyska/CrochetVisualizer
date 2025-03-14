@@ -55,7 +55,9 @@
       data: { 
         id: `node-${nextNodeId}`,
         label: pattern.name,
-        image: pattern.chart,
+        image: pattern.preview,
+        chart: pattern.chart,
+        preview: pattern.preview,
         formattedPattern: pattern.formattedPattern,
         pattern,
         instructions: [{
