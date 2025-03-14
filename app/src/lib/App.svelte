@@ -741,6 +741,7 @@ function expandStitchName(shortName) {
       timestamp: new Date().toISOString(),
       preview: previewImage,
       chart: chart,
+      angle: angle,
       formattedPattern: formattedPattern,
       grid: grid,
       colors: {
@@ -805,6 +806,11 @@ function expandStitchName(shortName) {
         } else if (pattern.name.toLowerCase().includes('round')) {
             // For backward compatibility with older patterns
             crochetType = 'round';
+        }
+        
+        // Load angle value if available
+        if (pattern.angle !== undefined) {
+            angle = pattern.angle;
         }
 
         // Call parsePattern to update the grid
