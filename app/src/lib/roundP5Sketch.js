@@ -7,7 +7,7 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
     let selectedNodes = [];
     
     // Round crochet specific variables
-    let angle = 300; // Total angle in degrees (full circle)
+    let angle = 360; // Total angle in degrees (full circle)
     let centerX, centerY;
     
     p5.setup = () => {
@@ -169,11 +169,34 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
         p5.stroke(0);
         p5.strokeWeight(1);
         
-        // Calculate the midpoint slightly closer to the center
-        const midRadius = p5.dist(centerX, centerY, from.x, from.y) * 0.9;
+        // Check if this is likely the connection between last and first node
+        // This happens when the angle difference is large (close to the total angle)
+        const angleDiff = Math.abs(from.theta - to.theta);
+        const isLastToFirst = angleDiff > 270; // If angle difference is large, it's likely last-to-first
+        
+        // Calculate the midpoint
+        let midRadius;
+        if (isLastToFirst) {
+            // For last-to-first connection, make the curve much flatter (closer to the nodes)
+            midRadius = p5.dist(centerX, centerY, from.x, from.y) * 0.98;
+        } else {
+            // For regular connections, keep the original curve
+            midRadius = p5.dist(centerX, centerY, from.x, from.y) * 0.9;
+        }
+        
         const midTheta = (from.theta + to.theta) / 2;
-        const midX = centerX + p5.cos(midTheta) * midRadius;
-        const midY = centerY + p5.sin(midTheta) * midRadius;
+        
+        // Handle the case where midTheta might need adjustment for last-to-first connection
+        let adjustedMidTheta = midTheta;
+        if (isLastToFirst) {
+            // If connecting across the 0/360 boundary, adjust the midpoint angle
+            if (Math.abs(from.theta - to.theta) > 180) {
+                adjustedMidTheta = (from.theta + to.theta + 360) / 2 % 360;
+            }
+        }
+        
+        const midX = centerX + p5.cos(adjustedMidTheta) * midRadius;
+        const midY = centerY + p5.sin(adjustedMidTheta) * midRadius;
         
         // Draw a curved line
         p5.noFill();
