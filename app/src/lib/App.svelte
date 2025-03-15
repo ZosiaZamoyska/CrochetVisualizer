@@ -439,10 +439,10 @@
         }
 
         // Add skip if there were nulls
-        const skipCount = row.filter(stitch => stitch === null).length;
+        /*const skipCount = row.filter(stitch => stitch === null).length;
         if (skipCount > 1) {
             condensedRow.push(`skip ${skipCount}`);
-        }
+        }*/
 
         // Add turn at the end
         condensedRow.push('turn.');

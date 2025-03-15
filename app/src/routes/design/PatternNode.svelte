@@ -2,6 +2,8 @@
   import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
   export let data;
   let dataView = false;
+  let isEditing = false;
+
   // Store connections in metadata
   const connections = useNodeConnections({
     handleType: 'target'
@@ -39,6 +41,43 @@
   function handleLoad() {
     window.loadPattern(data.id);
   }
+  function handleDoubleClick() {
+    isEditing = true;
+  }
+
+  function handleBlur() {
+    isEditing = false;
+    updateText();
+  }
+
+  function handleKeydown(event) {
+    if (event.key === 'Enter') {
+      isEditing = false;
+      updateText();
+    }
+  }
+  
+  function updateText() {
+    data.formattedPattern = formattedPattern;
+    
+    // Update instructions with new text
+    const updatedInstructions = [{
+      type: 'pattern',
+      content: data.formattedPattern
+    }];
+    
+    data.instructions = updatedInstructions;
+    
+    // Update the node data store to trigger propagation
+    updateNodeData(id, {
+      ...data,
+      text,
+      instructions: updatedInstructions
+    });
+  }
+
+  // Split the pattern text into lines for better display
+  $: patternLines = data.formattedPattern ? data.formattedPattern.split('\n') : [];
 </script>
 
 <div class="pattern-node">
@@ -59,6 +98,22 @@
         <span class="slider round"></span>
       </label>
     </div>
+    <div class="text-container" on:dblclick={handleDoubleClick}>
+      {#if isEditing}
+        <textarea
+          bind:value={data.formattedPattern}
+          on:blur={handleBlur}
+          on:keydown={handleKeydown}
+          autofocus
+        ></textarea>
+      {:else}
+        <div class="text-content">
+          {#each patternLines as line}
+            <div class="pattern-line">{line}</div>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </div>
 
   <Handle type="source" position={Position.Right} />
@@ -78,6 +133,7 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    width: 100%;
   }
 
   img {
@@ -85,7 +141,38 @@
     height: 100px;
     object-fit: contain;
   }
+  .text-container {
+    width: 100%;
+    padding: 8px;
+    background: #f8f8f8;
+    border-radius: 4px;
+    cursor: text;
+    max-height: 200px;
+    overflow-y: auto;
+  }
 
+  .text-content {
+    color: #333;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .pattern-line {
+    margin-bottom: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    resize: vertical;
+  }
+  
   .no-preview {
     width: 100px;
     height: 100px;
@@ -99,6 +186,8 @@
 
   .pattern-name {
     font-weight: 500;
+    width: 100%;
+    text-align: center;
   }
   .switch {
     position: relative;
@@ -121,6 +210,7 @@
     justify-content: center;
     font-size: 12px;
     gap: 10px;
+    width: 100%;
   }
   .slider {
     position: absolute;
