@@ -2,280 +2,112 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export async function exportPatternToPDF(instructions) {
-  // Get filename from instructions if it exists
   let fileName = 'crochet-pattern';
   const fileNameInstruction = instructions.find(item => item.type === 'fileName');
   if (fileNameInstruction) {
     fileName = fileNameInstruction.fileName;
   }
-  console.log('instructions_export');
-  console.log(instructions);
+
+  console.log('instructions_export', instructions);
 
   const doc = new jsPDF();
-  let startY = 20;
-  let currentY = [startY, startY];
-  let currentColumn = 0;
-
-  // Collect all image loading promises and their metadata first
-  const contentQueue = [];
-  const imagePromises = [];
+  const startY = 20;
+  const maxPageHeight = 270;
+  const columnX = [20, 110]; // Left and right column positions
+  const columnWidth = 80;
 
   doc.setFontSize(20);
-  contentQueue.push({
-    type: 'title',
-    fn: () => {
-      doc.text('Crochet Pattern', 20, startY);
-      currentY = [startY + 15, startY + 15];
-    }
-  });
+  doc.text('Crochet Pattern', columnX[0], startY);
+  let currentY = [startY + 15, startY + 15]; // Separate y positions per column
 
-  for (let i = 0; i < instructions.length; i++) {
-    const item = instructions[i];
-    const initialColumn = currentColumn; // Store current column state
+  // Determine split point for left and right columns
+  const midPoint = Math.ceil(3*instructions.length / 4);
+  const leftColumnItems = instructions.slice(0, midPoint);
+  const rightColumnItems = instructions.slice(midPoint);
 
-    if (item.type === 'pattern') {
-      // Queue pattern name
-      contentQueue.push({
-        type: 'name',
-        column: initialColumn,
-        fn: () => {
-          const columnX = initialColumn === 0 ? 20 : 110;
-          doc.setFontSize(14);
-          doc.text(item.name, columnX, currentY[initialColumn]);
-          currentY[initialColumn] += 8;
-          doc.setFontSize(12);
-        }
-      });
+  async function processColumn(items, colIndex) {
+    for (const item of items) {
+      let xPos = columnX[colIndex];
 
-      // Handle pattern preview image
-      if (item.preview) {
-        const imagePromise = new Promise((resolve) => {
-          const img = new Image();
-          img.src = item.preview;
-
-          img.onload = function () {
-            const imgNaturalWidth = img.naturalWidth;
-            const imgNaturalHeight = img.naturalHeight;
-
-            const maxWidth = 60;
-            let imgWidth = imgNaturalWidth;
-            let imgHeight = imgNaturalHeight;
-
-            if (imgWidth > maxWidth) {
-              const scale = maxWidth / imgWidth;
-              imgWidth *= scale;
-              imgHeight *= scale;
-            }
-
-            resolve({
-              src: img.src,
-              width: imgWidth,
-              height: imgHeight,
-              column: initialColumn,
-              x: initialColumn === 0 ? 20 : 110
-            });
-          };
-
-          img.onerror = function () {
-            console.error('Failed to load image');
-            resolve(null);
-          };
-        });
-
-        imagePromises.push(imagePromise);
-        contentQueue.push({
-          type: 'image',
-          column: initialColumn,
-          fn: async (imageData) => {
-            if (imageData) {
-              if (currentY[imageData.column] + imageData.height > 270) {
-                if (currentColumn === 0) {
-                  currentColumn = 1;
-                  currentY[1] = startY;
-                } else {
-                  currentColumn = 0;
-                  doc.addPage();
-                  currentY = [startY, startY];
-                }
-              }
-              doc.addImage(imageData.src, 'PNG', imageData.x, currentY[imageData.column], imageData.width, imageData.height);
-              currentY[imageData.column] += imageData.height + 5;
-            }
-          }
-        });
+      if (currentY[colIndex] > maxPageHeight) {
+        doc.addPage();
+        currentY = [startY, startY]; // Reset column heights
       }
 
-      // Queue pattern instructions
-      contentQueue.push({
-        type: 'pattern',
-        column: initialColumn,
-        fn: () => {
-          const columnX = initialColumn === 0 ? 20 : 110;
-          const maxWidth = 80;
-          const patternLines = item.formattedPattern.split('\n');
-          patternLines.forEach(line => {
-            const splitLines = doc.splitTextToSize(line, maxWidth);
-            doc.text(splitLines, columnX, currentY[initialColumn]);
-            currentY[initialColumn] += splitLines.length * 7;
+      if (item.type === 'color') {
+        doc.setFontSize(14);
+        doc.setTextColor('#000000');
+        doc.text('Yarn color: ', xPos, currentY[colIndex]);
+        const prefixWidth = doc.getTextWidth('Yarn color: ');
+        doc.setTextColor(item.color);
+        doc.text(item.colorName, xPos + prefixWidth, currentY[colIndex]);
+        doc.setTextColor('#000000');
+        currentY[colIndex] += 12;
+      } 
+
+      else if (item.type === 'pattern') {
+        doc.setFontSize(14);
+        doc.text(item.name, xPos, currentY[colIndex]);
+        currentY[colIndex] += 8;
+        doc.setFontSize(12);
+
+        if (item.preview) {
+          const img = new Image();
+          img.src = item.preview;
+          await new Promise((resolve) => {
+            img.onload = function () {
+              const imgWidth = Math.min(img.naturalWidth, 60);
+              const imgHeight = (img.naturalHeight * imgWidth) / img.naturalWidth;
+
+              if (currentY[colIndex] + imgHeight > maxPageHeight) {
+                doc.addPage();
+                currentY = [startY, startY];
+              }
+
+              doc.addImage(img.src, 'PNG', xPos, currentY[colIndex], imgWidth, imgHeight);
+              currentY[colIndex] += imgHeight + 5;
+              resolve();
+            };
           });
         }
-      });
 
-      // Add spacing and move to next column/page
-      contentQueue.push({
-        type: 'spacing',
-        fn: () => {
-          currentY[currentColumn] += 5;
-          if (currentColumn === 0) {
-            currentColumn = 1;
-          } else {
-            currentColumn = 0;
-            doc.addPage();
-            currentY = [startY, startY];
-          }
-        }
-      });
+        const patternLines = doc.splitTextToSize(item.formattedPattern, columnWidth);
+        doc.text(patternLines, xPos, currentY[colIndex]);
+        currentY[colIndex] += patternLines.length * 7 + 5;
+      } 
 
-    } else if (item.type === 'text') {
-      contentQueue.push({
-        type: 'text',
-        column: initialColumn,
-        fn: () => {
-          const columnX = initialColumn === 0 ? 20 : 110;
-          const maxWidth = 80;
-          const splitText = doc.splitTextToSize(item.content, maxWidth);
-          const textHeight = splitText.length * 7 + 5;
+      else if (item.type === 'text') {
+        doc.setFontSize(14);
+        const splitText = doc.splitTextToSize(item.content, columnWidth);
+        doc.text(splitText, xPos, currentY[colIndex]);
+        currentY[colIndex] += splitText.length * 7 + 5;
+      } 
 
-          if (currentY[initialColumn] + textHeight > 270) {
-            if (currentColumn === 0) {
-              currentColumn = 1;
-              currentY[1] = startY;
-            } else {
-              currentColumn = 0;
+      else if (item.type === 'image' && item.imageUrl) {
+        const img = new Image();
+        img.src = item.imageUrl;
+        await new Promise((resolve) => {
+          img.onload = function () {
+            const imgWidth = Math.min(img.naturalWidth, 80);
+            const imgHeight = (img.naturalHeight * imgWidth) / img.naturalWidth;
+
+            if (currentY[colIndex] + imgHeight > maxPageHeight) {
               doc.addPage();
               currentY = [startY, startY];
             }
-          }
 
-          doc.text(splitText, columnX, currentY[initialColumn]);
-          currentY[initialColumn] += textHeight;
-        }
-      });
-    } else if (item.type === 'color') {
-      contentQueue.push({
-        type: 'color',
-        column: initialColumn,
-        fn: () => {
-          const columnX = initialColumn === 0 ? 20 : 110;
-          const maxWidth = 80;
-          
-          // First add the prefix in black
-          doc.setFontSize(14);
-          doc.setTextColor('#000000');
-          doc.text('Yarn color: ', columnX, currentY[initialColumn]);
-          
-          // Get the width of the prefix to know where to start the colored text
-          const prefixWidth = doc.getTextWidth('Yarn color: ');
-          
-          // Add color name in the selected color
-          doc.setTextColor(item.color);
-          doc.text(item.colorName, columnX + prefixWidth, currentY[initialColumn]);
-          
-          // Reset text color to black
-          doc.setTextColor('#000000');
-          
-          currentY[initialColumn] += 7 + 5; // Line height + spacing
-        }
-      });
-    } else if (item.type === 'image') {
-      // Handle uploaded image
-      if (item.imageUrl) {
-        const imagePromise = new Promise((resolve) => {
-          const img = new Image();
-          img.src = item.imageUrl;
-
-          img.onload = function () {
-            const imgNaturalWidth = img.naturalWidth;
-            const imgNaturalHeight = img.naturalHeight;
-
-            const maxWidth = 80;
-            let imgWidth = imgNaturalWidth;
-            let imgHeight = imgNaturalHeight;
-
-            if (imgWidth > maxWidth) {
-              const scale = maxWidth / imgWidth;
-              imgWidth *= scale;
-              imgHeight *= scale;
-            }
-
-            resolve({
-              src: img.src,
-              width: imgWidth,
-              height: imgHeight,
-              column: initialColumn,
-              x: initialColumn === 0 ? 20 : 110,
-              caption: item.caption
-            });
+            doc.addImage(img.src, 'PNG', xPos, currentY[colIndex], imgWidth, imgHeight);
+            currentY[colIndex] += imgHeight + 5;
+            resolve();
           };
-
-          img.onerror = function () {
-            console.error('Failed to load image');
-            resolve(null);
-          };
-        });
-
-        imagePromises.push(imagePromise);
-        contentQueue.push({
-          type: 'uploaded-image',
-          column: initialColumn,
-          fn: async (imageData) => {
-            if (imageData) {
-              if (currentY[imageData.column] + imageData.height + 15 > 270) {
-                if (currentColumn === 0) {
-                  currentColumn = 1;
-                  currentY[1] = startY;
-                } else {
-                  currentColumn = 0;
-                  doc.addPage();
-                  currentY = [startY, startY];
-                }
-              }
-              
-              doc.addImage(imageData.src, 'PNG', imageData.x, currentY[imageData.column], imageData.width, imageData.height);
-              currentY[imageData.column] += imageData.height + 5;
-              
-              // Add caption if available
-              if (imageData.caption) {
-                doc.setFontSize(10);
-                doc.setTextColor('#666666');
-                const captionLines = doc.splitTextToSize(imageData.caption, 80);
-                doc.text(captionLines, imageData.x, currentY[imageData.column], { align: 'center' });
-                currentY[imageData.column] += captionLines.length * 5 + 10;
-              }
-              
-              // Reset text color
-              doc.setTextColor('#000000');
-              doc.setFontSize(12);
-            }
-          }
         });
       }
     }
   }
 
-  // Wait for all images to load
-  const imageResults = await Promise.all(imagePromises);
+  // Process columns in order
+  await processColumn(leftColumnItems, 0);
+  await processColumn(rightColumnItems, 1);
 
-  // Generate PDF content
-  let imageIndex = 0;
-  for (const item of contentQueue) {
-    if (item.type === 'image' || item.type === 'uploaded-image') {
-      await item.fn(imageResults[imageIndex++]);
-    } else {
-      item.fn();
-    }
-  }
-
-  // Save PDF
   doc.save(`${fileName}.pdf`);
 }

@@ -1,5 +1,6 @@
 <script>
   import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
+  import { nodeDataStore } from '$lib/store';
   export let data;
   let dataView = false;
   let isEditing = false;
@@ -51,29 +52,55 @@
   }
 
   function handleKeydown(event) {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       isEditing = false;
       updateText();
     }
   }
   
   function updateText() {
-    data.formattedPattern = formattedPattern;
+    // Update the pattern's formatted pattern
+    if (data.pattern) {
+      data.pattern.formattedPattern = data.formattedPattern;
+    }
     
     // Update instructions with new text
-    const updatedInstructions = [{
+    const patternInstruction = {
       type: 'pattern',
-      content: data.formattedPattern
-    }];
+      name: data.label,
+      preview: data.image,
+      grid: data.pattern?.grid,
+      formattedPattern: data.formattedPattern
+    };
     
-    data.instructions = updatedInstructions;
+    // Keep any instructions from connected nodes and add our updated pattern instruction
+    const connectedInstructions = $nodesData?.flatMap(node => 
+      node.data.instructions || []
+    ) || [];
+    
+    data.instructions = [
+      ...connectedInstructions,
+      patternInstruction
+    ];
     
     // Update the node data store to trigger propagation
-    updateNodeData(id, {
-      ...data,
-      text,
-      instructions: updatedInstructions
+    nodeDataStore.update(store => {
+      if (store[data.id]) {
+        store[data.id] = {
+          ...store[data.id],
+          formattedPattern: data.formattedPattern,
+          instructions: data.instructions,
+          pattern: data.pattern
+        };
+      }
+      return store;
     });
+    
+    // Force refresh connected nodes
+    if (window.refreshFlow) {
+      setTimeout(() => window.refreshFlow(), 0);
+    }
   }
 
   // Split the pattern text into lines for better display

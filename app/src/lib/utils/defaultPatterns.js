@@ -31,14 +31,17 @@ export function getDefaultPatterns() {
  * @param {Array} userPatterns - User's saved patterns from localStorage
  * @returns {Array} Combined array of default and user patterns
  */
-export function mergeWithDefaultPatterns(userPatterns = []) {
+export function mergeWithDefaultPatterns(userPatterns) {
+  // Ensure userPatterns is an array
+  const validUserPatterns = Array.isArray(userPatterns) ? userPatterns : [];
+  
   const defaultPatterns = getDefaultPatterns();
   
   // Create a map of existing pattern IDs to avoid duplicates
-  const existingPatternIds = new Set(userPatterns.map(p => p.id));
+  const existingPatternIds = new Set(validUserPatterns.map(p => p.id));
   
   // Only add default patterns that don't already exist in user patterns
   const newDefaultPatterns = defaultPatterns.filter(p => !existingPatternIds.has(p.id));
   
-  return [...userPatterns, ...newDefaultPatterns];
+  return [...validUserPatterns, ...newDefaultPatterns];
 } 
