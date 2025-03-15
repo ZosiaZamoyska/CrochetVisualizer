@@ -38,7 +38,7 @@
   let newPatternName = "";
   let newPatternNotes = "";
   let viewMode = 'basic';
-  let crochetType = 'round';
+  let crochetType = 'flat';
   let shapes = [];
   let isSelecting = false;
   let selectionStart = { x: 0, y: 0 };
