@@ -10,8 +10,8 @@
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
   import { patternToLoad, nodeDataStore, updateNodeData } from '$lib/store';
-  import { propagateData } from '$lib/NodeDataPropagation';
-  import { mergeWithDefaultPatterns } from '$lib/utils/defaultPatterns.js';
+  import { propagateData } from '$lib/NodeDataPropagation.svelte';
+  import { mergeWithDefaultPatterns, getDefaultPatterns } from '$lib/utils/defaultPatterns.js';
   import PatternNode from './PatternNode.svelte';
   import TextNode from './TextNode.svelte';
   import ExportNode from './ExportNode.svelte';
@@ -20,11 +20,13 @@
   import ImageNode from './ImageNode.svelte';
   
   let savedPatterns = [];
+  let savedFlows = [];
   const nodes = writable([]);
   const edges = writable([]);
   let nextNodeId = 1;
   let nodesInitialized = false;
   let previousEdges = [];
+  let showFlowsMenu = false;
 
   // Watch for changes in nodes
   $: if ($nodes.length > 0 && !nodesInitialized) {
@@ -459,6 +461,88 @@
     return defaultPatternIds.has(id);
   }
 
+  // Function to save the current flow as a template
+  function saveCurrentFlow() {
+    // Ask for a name for this flow
+    const flowName = prompt('Enter a name for this flow template:');
+    if (!flowName) return; // User cancelled
+    
+    // Create a flow object
+    const flow = {
+      id: Date.now(),
+      name: flowName,
+      timestamp: new Date().toISOString(),
+      nodes: $nodes,
+      edges: $edges
+    };
+    
+    // Load existing flows from localStorage
+    let flows = [];
+    const saved = localStorage.getItem('savedFlows');
+    if (saved) {
+      try {
+        flows = JSON.parse(saved);
+      } catch (error) {
+        console.error('Error parsing saved flows:', error);
+      }
+    }
+    
+    // Add the new flow
+    flows.push(flow);
+    
+    // Save back to localStorage
+    localStorage.setItem('savedFlows', JSON.stringify(flows));
+    
+    // Update the flows list
+    savedFlows = flows;
+    
+    alert(`Flow "${flowName}" saved as template!`);
+  }
+  
+  // Function to load a saved flow
+  function loadFlow(flow) {
+    if (confirm('Loading a flow template will replace your current design. Continue?')) {
+      // Set the nodes and edges from the saved flow
+      nodes.set(flow.nodes);
+      edges.set(flow.edges);
+      
+      // Find the highest node ID to set nextNodeId
+      const highestId = flow.nodes.reduce((max, node) => {
+        const idNum = parseInt(node.id.replace('node-', ''));
+        return isNaN(idNum) ? max : Math.max(max, idNum);
+      }, 0);
+      
+      nextNodeId = highestId + 1;
+      
+      // Initialize node data in the store
+      nodeDataStore.update(store => {
+        // Clear the store first
+        return {};
+      });
+      
+      flow.nodes.forEach(node => {
+        updateNodeData(node.id, node.data);
+      });
+      
+      // Toggle off the flows menu
+      showFlowsMenu = false;
+      
+      // Refresh the flow to ensure all connections are properly established
+      setTimeout(refreshFlow, 100);
+    }
+  }
+  
+  // Function to delete a saved flow
+  function deleteFlow(id) {
+    if (confirm('Are you sure you want to delete this flow template?')) {
+      // Filter out the flow to delete
+      savedFlows = savedFlows.filter(f => f.id !== id);
+      
+      // Save back to localStorage
+      localStorage.setItem('savedFlows', JSON.stringify(savedFlows));
+    }
+  }
+
   onMount(() => {
     // Load saved patterns from localStorage
     let userPatterns = [];
@@ -474,6 +558,17 @@
 
     // Merge user patterns with default patterns
     savedPatterns = mergeWithDefaultPatterns(userPatterns);
+    
+    // Load saved flows from localStorage
+    const savedFlowsData = localStorage.getItem('savedFlows');
+    if (savedFlowsData) {
+      try {
+        savedFlows = JSON.parse(savedFlowsData);
+      } catch (error) {
+        console.error('Error parsing saved flows:', error);
+        savedFlows = [];
+      }
+    }
     
     // Save the merged patterns back to localStorage
     localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
@@ -540,6 +635,85 @@
       animated: true
     }
   };
+
+  // Function to save the current pattern to the library
+  function saveCurrentPatternToLibrary() {
+    // Check if there are any pattern nodes in the flow
+    const patternNodes = $nodes.filter(node => node.type === 'pattern');
+    
+    if (patternNodes.length === 0) {
+      alert('No pattern nodes found. Add at least one pattern node to save to library.');
+      return;
+    }
+    
+    let selectedPatternNode;
+    
+    // If there's only one pattern node, use it
+    if (patternNodes.length === 1) {
+      selectedPatternNode = patternNodes[0];
+    } else {
+      // If there are multiple pattern nodes, let the user choose
+      const patternOptions = patternNodes.map((node, index) => 
+        `${index + 1}: ${node.data.label || node.data.pattern?.name || 'Unnamed pattern'}`
+      );
+      
+      const selection = prompt(
+        `Multiple patterns found. Enter the number of the pattern to save:\n\n${patternOptions.join('\n')}`,
+        '1'
+      );
+      
+      if (!selection) return; // User cancelled
+      
+      const selectedIndex = parseInt(selection) - 1;
+      if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= patternNodes.length) {
+        alert('Invalid selection. Please enter a valid number.');
+        return;
+      }
+      
+      selectedPatternNode = patternNodes[selectedIndex];
+    }
+    
+    const pattern = selectedPatternNode.data.pattern;
+    
+    if (!pattern) {
+      alert('Selected node does not contain a valid pattern.');
+      return;
+    }
+    
+    // Ask for a custom name (default to the current pattern name)
+    const customName = prompt('Enter a name for this pattern:', pattern.name);
+    if (!customName) return; // User cancelled
+    
+    // Create a new pattern object with a unique ID and the custom name
+    const newPattern = {
+      ...pattern,
+      id: Date.now(),
+      name: customName,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Load existing patterns from localStorage
+    let userPatterns = [];
+    const saved = localStorage.getItem('savedPatterns');
+    if (saved) {
+      try {
+        userPatterns = JSON.parse(saved);
+      } catch (error) {
+        console.error('Error parsing saved patterns:', error);
+      }
+    }
+    
+    // Add the new pattern
+    userPatterns.push(newPattern);
+    
+    // Save back to localStorage
+    localStorage.setItem('savedPatterns', JSON.stringify(userPatterns));
+    
+    // Update the patterns in the sidebar
+    savedPatterns = mergeWithDefaultPatterns(userPatterns);
+    
+    alert(`Pattern "${customName}" saved to library!`);
+  }
 </script>
 
 <div class="design-container">
@@ -584,7 +758,41 @@
       <button class="refresh-button" on:click={refreshFlow}>
         Refresh Flow
       </button>
+      
+      <button class="save-button" on:click={saveCurrentPatternToLibrary}>
+        Save Pattern to Library
+      </button>
+      
+      <button class="flow-button" on:click={saveCurrentFlow}>
+        Save Flow Template
+      </button>
+      
+      <button class="flow-button" on:click={() => showFlowsMenu = !showFlowsMenu}>
+        {showFlowsMenu ? 'Hide Flow Templates' : 'Load Flow Template'}
+      </button>
     </div>
+    
+    {#if showFlowsMenu}
+      <div class="flows-menu">
+        <h3>Saved Flow Templates</h3>
+        {#if savedFlows.length === 0}
+          <p class="no-flows">No saved flow templates</p>
+        {:else}
+          {#each savedFlows as flow}
+            <div class="flow-item">
+              <div class="flow-info">
+                <span class="flow-name">{flow.name}</span>
+                <span class="flow-date">{new Date(flow.timestamp).toLocaleDateString()}</span>
+              </div>
+              <div class="flow-actions">
+                <button class="flow-load" on:click={() => loadFlow(flow)}>Load</button>
+                <button class="flow-delete" on:click={() => deleteFlow(flow.id)}>Delete</button>
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <div class="canvas-container" on:drop={handleDrop} on:dragover={(e) => e.preventDefault()}>
@@ -717,6 +925,116 @@
   
   .refresh-button:hover {
     background: var(--primary-color-dark, #3182ce);
+  }
+
+  .save-button {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #38a169;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+  }
+  
+  .save-button:hover {
+    background: #2f855a;
+  }
+
+  .flow-button {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #805ad5;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+  }
+  
+  .flow-button:hover {
+    background: #6b46c1;
+  }
+  
+  .flows-menu {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: #f0f0f0;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+  }
+  
+  .flows-menu h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+  }
+  
+  .no-flows {
+    font-style: italic;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  .flow-item {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .flow-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  
+  .flow-name {
+    font-weight: bold;
+  }
+  
+  .flow-date {
+    font-size: 0.8rem;
+    color: #666;
+  }
+  
+  .flow-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .flow-actions button {
+    flex: 1;
+    padding: 0.25rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: bold;
+  }
+  
+  .flow-load {
+    background: #805ad5;
+    color: white;
+  }
+  
+  .flow-load:hover {
+    background: #6b46c1;
+  }
+  
+  .flow-delete {
+    background: #e53e3e;
+    color: white;
+  }
+  
+  .flow-delete:hover {
+    background: #c53030;
   }
 
   .pattern-info {
