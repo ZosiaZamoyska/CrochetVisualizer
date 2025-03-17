@@ -1,7 +1,7 @@
 import { draw } from 'svelte/transition';
 import { enableSelection } from './interactiveEditing.js';
 import  ContextMenu from './ContextMenu.svelte'; // Import the context menu component
-import { gridToPattern } from './parser';
+import { gridToPattern } from './parser.svelte';
 export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, verticalSpacing = 15, horizontalSpacing = 15, chColor = "#00DC00", scColor = "#00C800", dcColor = "#00AA00", customStitches = [], onShowContextMenu) {
     let positions = [];
     let positions_null = [];

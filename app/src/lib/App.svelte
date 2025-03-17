@@ -1,13 +1,13 @@
 <script>
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
-  import { parsePattern, grid } from './parser.js';
+  import { parsePattern, grid } from './parser.svelte';
   import { createBasicP5Instance } from './basicP5Sketch.js';
   import { createPhysicsP5Instance } from './physicsp5Sketch.js';
   import { createExpertP5Instance } from './expertP5Sketch.js';
   import { createRoundP5Instance } from './roundP5Sketch.js';
   import { enableSelection } from './interactiveEditing.js';
-  import { gridToPattern } from './parser.js';
+  import { gridToPattern } from './parser.svelte';
   import { patternToLoad } from '$lib/store';
 
   import './App.css';
@@ -98,12 +98,14 @@
   // Function to toggle grid editing mode
   function toggleGridEditing() {
     gridEditing = !gridEditing;
-    if (gridEditing) {
-      console.log('Entering grid editing mode');
-    } else {
-      console.log('Exiting grid editing mode, syncing with pattern');
+  }
+
+  // Function to update the formatted pattern and pattern input
+  function updatePatternFromGrid() {
+    if (grid) {
+      console.log('Updating pattern from grid');
+      formattedPattern = formatPattern();
       patternInput = gridToPattern();
-      parsePattern(patternInput.trim());
     }
   }
 
@@ -285,6 +287,7 @@
     if (!grid || grid.length === 0) return "";
 
     // Holds the formatted rows to process and merge
+    console.log('grid', grid);
     const formattedRows = grid.map((row, rowIndex) => {
         // Handle foundation chain separately
         if (rowIndex === 0) {
@@ -1499,8 +1502,8 @@ function expandStitchName(shortName) {
                 if (selectedNodes && selectedNodes.length > 0) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.deleteSelectedNodes(selectedNodes);
-                    formattedPattern = formatPattern(patternInput);
                     redrawCanvas();
+                    updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
@@ -1509,8 +1512,10 @@ function expandStitchName(shortName) {
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
+                    gridEditing = true; // Enter grid editing mode
                     p5Instance.duplicateSelectedNodes(selectedNodes);
                     redrawCanvas();
+                    updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
@@ -1523,6 +1528,7 @@ function expandStitchName(shortName) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.changeStitchType(selectedNodes, stitchType);
                     redrawCanvas();
+                    updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
@@ -1546,25 +1552,17 @@ function expandStitchName(shortName) {
                     uniqueStitchTypes.forEach(stitchType => {
                         // Create a new stitch name based on the original stitch type and color
                         const colorHex = color.replace('#', '');
-                        const newStitchName = `${stitchType}_${colorHex.substring(0, 3)}`;
+                        const newStitchName = `${stitchType}_${colorHex}`;
                         
-                        // Check if this custom stitch already exists
-                        const existingStitch = customStitches.find(s => s.name === newStitchName);
-                        if (!existingStitch) {
-                            // Add the new stitch to customStitches
-                            customStitches = [...customStitches, { name: newStitchName, color: color }];
-                            stitchesType = [...stitchesType, newStitchName];
-                        }
-                        
-                        // Change the stitch type of selected nodes of this type to the new stitch
+                        // Find nodes of this stitch type
                         const nodesOfThisType = selectedNodes.filter(node => node.stitch === stitchType);
-                        if (nodesOfThisType.length > 0) {
-                            p5Instance.changeStitchType(nodesOfThisType, newStitchName);
-                        }
+                        
+                        // Change the stitch type to the new custom stitch
+                        p5Instance.changeStitchType(nodesOfThisType, newStitchName);
                     });
                     
-                    // Force a redraw to update the color groups
                     redrawCanvas();
+                    updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
