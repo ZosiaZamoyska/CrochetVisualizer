@@ -1098,7 +1098,8 @@ function expandStitchName(shortName) {
 
       if (stitchesType.includes(receivedData))
       {
-        patternInput += receivedData + " ";
+        patternInput = patternInput.trim();
+        patternInput += " " + receivedData;
         parsePattern(patternInput.trim());
       }
       if (arduinoStatus.includes(receivedData))
