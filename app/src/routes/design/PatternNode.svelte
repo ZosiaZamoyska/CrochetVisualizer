@@ -1,6 +1,7 @@
 <script>
   import { Handle, Position, useNodeConnections, useNodesData } from '@xyflow/svelte';
   import { nodeDataStore } from '$lib/store';
+  import { logAction, ActionTypes } from '$lib/utils/userStudyLogger';
   export let data;
   let dataView = false;
   let isEditing = false;
@@ -37,13 +38,21 @@
       }
     ];
     console.log('data.instructions in pattern node');
-    console.log(data.instructions);  }
+    console.log(data.instructions);
+  }
 
   function handleLoad() {
     window.loadPattern(data.id);
+    
+    // Log pattern visualization change
+    logAction(ActionTypes.VISUALIZATION_CHANGE, `Pattern loaded for editing: ${data.label}`);
   }
+  
   function handleDoubleClick() {
     isEditing = true;
+    
+    // Log pattern edit start
+    logAction(ActionTypes.PATTERN_CHANGE, `Started editing pattern text: ${data.label}`);
   }
 
   function handleBlur() {
@@ -84,6 +93,12 @@
       patternInstruction
     ];
     
+    // Log pattern text changed
+    logAction(ActionTypes.PATTERN_CHANGE, `Pattern text updated: ${data.label}`, {
+      patternLength: data.formattedPattern.length,
+      formattedPattern: data.formattedPattern
+    });
+    
     // Update the node data store to trigger propagation
     nodeDataStore.update(store => {
       if (store[data.id]) {
@@ -105,6 +120,11 @@
 
   // Split the pattern text into lines for better display
   $: patternLines = data.formattedPattern ? data.formattedPattern.split('\n') : [];
+  
+  // Log view mode changes
+  $: if (typeof dataView !== 'undefined') {
+    logAction(ActionTypes.VISUALIZATION_CHANGE, `Pattern view mode changed: ${dataView ? 'Data view' : 'Chart view'} for ${data.label}`);
+  }
 </script>
 
 <div class="pattern-node">

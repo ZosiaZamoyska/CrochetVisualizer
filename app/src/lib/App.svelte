@@ -8,7 +8,9 @@
   import { createRoundP5Instance } from './roundP5Sketch.js';
   import { enableSelection } from './interactiveEditing.js';
   import { gridToPattern } from './parser.svelte';
-  import { patternToLoad } from '$lib/store';
+  import { patternToLoad, userStudyMetrics } from '$lib/store';
+  import { logAction, ActionTypes } from './utils/userStudyLogger';
+  import UserStudyControls from './UserStudyControls.svelte';
 
   import './App.css';
   import { jsPDF } from 'jspdf';
@@ -46,6 +48,8 @@
   let selectedNodes = [];
   let gridEditing = false;
   let angle = 360;
+  let oldCrochetType = 'flat';
+  let oldViewMode = 'basic';
   
   let contextMenuVisible = false;
   let contextMenuProps = {
@@ -84,7 +88,7 @@
       // Update formatted pattern from current grid state
       formattedPattern = formatPattern();
       // Update pattern input to match grid (but don't trigger parsing)
-      patternInput = gridToPattern();
+      //patternInput = gridToPattern();
     }
   }
 
@@ -92,12 +96,21 @@
   function handlePatternInput(event) {
     if (!gridEditing) {
       parsePattern(event.target.value.trim());
+      
+      // Log pattern change
+      logAction(ActionTypes.PATTERN_CHANGE, 'Pattern text changed by user', {
+        patternLength: event.target.value.trim().length,
+        pattern: event.target.value.trim()
+      });
     }
   }
 
   // Function to toggle grid editing mode
   function toggleGridEditing() {
     gridEditing = !gridEditing;
+    
+    // Log visualization change
+    logAction(ActionTypes.VISUALIZATION_CHANGE, `Grid editing mode ${gridEditing ? 'enabled' : 'disabled'}`);
   }
 
   // Function to update the formatted pattern and pattern input
@@ -105,7 +118,14 @@
     if (grid) {
       console.log('Updating pattern from grid');
       formattedPattern = formatPattern();
-      patternInput = gridToPattern();
+      //patternInput = gridToPattern();
+      
+      // Log pattern change
+      logAction(ActionTypes.PATTERN_CHANGE, 'Pattern updated from grid changes', {
+        patternLength: patternInput.length,
+        pattern: patternInput,
+        formattedPattern: formattedPattern
+      });
     }
   }
 
@@ -159,6 +179,7 @@
 
     isPlaying = true;
     currentStep = 2;
+    
 
     interval = setInterval(() => {
       if (currentStep <= patternInput.length) {
@@ -180,13 +201,16 @@
 
   // Function to trigger the canvas redraw
   function redrawCanvas() {
-
     createCanvasInstance();
   }
 
   function undoLastStitch() {
     const stitches = patternInput.trim().split(" ");
     if (stitches.length > 0) {
+      // Log undo action
+      const removedStitch = stitches[stitches.length - 1];
+      logAction(ActionTypes.UNDO, `Stitch undone: ${removedStitch}`);
+      
       stitches.pop();
       patternInput = stitches.join(" ");
       parsePattern(patternInput.trim());
@@ -194,6 +218,9 @@
   }
 
   function exportToPDF() {
+    // Log export action
+    logAction(ActionTypes.EXPORT, 'Pattern exported to PDF');
+    
     // Create a new PDF document
     const doc = new jsPDF();
     
@@ -228,6 +255,9 @@
   }
 
   function saveChart() {
+    // Log save action
+    logAction(ActionTypes.SAVE, 'Chart saved as image');
+    
     if (p5Instance) {
       const canvas = document.querySelector('#p5Canvas canvas');
       const ctx = canvas.getContext('2d');
@@ -504,6 +534,8 @@ function expandStitchName(shortName) {
 
 
   function addNewStitch() {
+    // Log add stitch action
+    logAction(ActionTypes.ADD_COLOR_STITCH, `New stitch added: ${newStitchName.trim()}`, {name: newStitchName.trim(), color: newStitchColor});
     if (newStitchName.trim()) {
       // Add the new stitch to customStitches
       customStitches = [...customStitches, { name: newStitchName.trim(), color: newStitchColor }];
@@ -529,6 +561,7 @@ function expandStitchName(shortName) {
   }
 
   function removeCustomStitch(stitchName) {
+    logAction(ActionTypes.REMOVE_COLOR_STITCH, `Custom stitch removed: ${stitchName}`, {customStitch: stitchName, before: customStitches, after: [...customStitches.filter(s => s.name !== stitchName)]});
     console.log('Custom stitches before removal:', customStitches);
     console.log('Removing custom stitch:', stitchName);
     customStitches = [...customStitches.filter(s => s.name !== stitchName)];
@@ -537,6 +570,9 @@ function expandStitchName(shortName) {
   }
 
   function savePattern() {
+    // Log save action
+    logAction(ActionTypes.SAVE, 'Pattern saved');
+    
     showSavePatternDialog = true;
   }
 
@@ -621,6 +657,9 @@ function expandStitchName(shortName) {
       return;
     }
 
+    // Log save action with pattern name
+    logAction(ActionTypes.SAVE, `Pattern saved with name: ${newPatternName}`);
+    
     // Get the preview canvas
     const canvas = document.querySelector('#p5Canvas canvas');
     let previewImage = null;
@@ -861,6 +900,10 @@ function expandStitchName(shortName) {
   function addStitch(stitchType) {
     patternInput = (patternInput.trim() + " " + stitchType).trim();
     parsePattern(patternInput);
+    
+    // Log stitch add action
+    logAction(ActionTypes.PATTERN_CHANGE, `Stitch manually added: ${stitchType}`);
+    
     showAddStitchDropdown = false;
   }
 
@@ -888,7 +931,13 @@ function expandStitchName(shortName) {
     if (!nodes) return;
     
     console.log('Updating stitch colors:', { nodes, newColor, oldColor });
-    
+    logAction(ActionTypes.COLOR_CHANGE, 'Stitch color updated', {
+      pattern: patternInput,
+      grid: grid,
+      nodes: nodes,
+      newColor: newColor,
+      oldColor: oldColor
+    });
     // Initialize grid.colorMap if it doesn't exist
     if (!grid.colorMap) {
       grid.colorMap = {};
@@ -1183,6 +1232,19 @@ function expandStitchName(shortName) {
             p5Instance.remove(); // Remove existing instance
         }
 
+        // Log visualization change only if there's an actual change
+        console.log('oldViewMode: ', oldViewMode, 'viewMode: ', viewMode, 'oldCrochetType: ', oldCrochetType, 'crochetType: ', crochetType);
+        if (oldViewMode !== viewMode || oldCrochetType !== crochetType) {
+            logAction(ActionTypes.VISUALIZATION_CHANGE, `View mode changed from ${oldViewMode} to ${viewMode}, Crochet type from ${oldCrochetType} to ${crochetType}`, {
+                oldViewMode,
+                newViewMode: viewMode,
+                oldCrochetType,
+                newCrochetType: crochetType
+            });
+            oldViewMode = viewMode;
+            oldCrochetType = crochetType;
+        } 
+        
         // Create a new p5 instance with the appropriate drawing function based on view mode and crochet type
         if (viewMode === 'expert') {
             if (crochetType === 'round') {
@@ -1208,6 +1270,26 @@ function expandStitchName(shortName) {
     }
   }
   
+  // Watch for changes in visualization settings
+  $: if (horizontalSpacing || verticalSpacing || roundSpacing) {
+    // Only log if not initial values
+    if (horizontalSpacing !== 15 || verticalSpacing !== 15 || roundSpacing !== 50) {
+      logAction(ActionTypes.SETTINGS_CHANGE, 'Spacing settings changed', {
+        horizontalSpacing,
+        verticalSpacing,
+        roundSpacing
+      });
+    }
+  }
+  
+  // Watch for color changes
+  $: if (chColor !== "#00DC00" || scColor !== "#00C800" || dcColor !== "#00AA00") {
+    logAction(ActionTypes.COLOR_CHANGE, 'Default color settings changed', {
+      chColor,
+      scColor,
+      dcColor
+    });
+  }
 </script>
 
 <div class="container">
@@ -1250,7 +1332,9 @@ function expandStitchName(shortName) {
     >
     
     <div class="spacing-controls">
-      <div class="settings-header" on:click={() => showSettings = !showSettings}>
+      <div class="settings-header" on:click={() => {
+        showSettings = !showSettings;
+      }}>
         <span class="toggle-icon">{showSettings ? '🔽' : '▶️'}</span>
         <h2>Visualization Settings</h2>
       </div>
@@ -1503,7 +1587,7 @@ function expandStitchName(shortName) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.deleteSelectedNodes(selectedNodes);
                     redrawCanvas();
-                    updatePatternFromGrid(); // Update the formatted pattern
+                    //updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
@@ -1515,7 +1599,7 @@ function expandStitchName(shortName) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.duplicateSelectedNodes(selectedNodes);
                     redrawCanvas();
-                    updatePatternFromGrid(); // Update the formatted pattern
+                    //updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
@@ -1528,7 +1612,7 @@ function expandStitchName(shortName) {
                     gridEditing = true; // Enter grid editing mode
                     p5Instance.changeStitchType(selectedNodes, stitchType);
                     redrawCanvas();
-                    updatePatternFromGrid(); // Update the formatted pattern
+                    //updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();
@@ -1553,6 +1637,12 @@ function expandStitchName(shortName) {
                         // Create a new stitch name based on the original stitch type and color
                         const colorHex = color.replace('#', '');
                         const newStitchName = `${stitchType}_${colorHex}`;
+                        const existingStitch = customStitches.find(s => s.name === newStitchName);
+                         if (!existingStitch) {
+                             // Add the new stitch to customStitches
+                             customStitches = [...customStitches, { name: newStitchName, color: color }];
+                             stitchesType = [...stitchesType, newStitchName];
+                         }
                         
                         // Find nodes of this stitch type
                         const nodesOfThisType = selectedNodes.filter(node => node.stitch === stitchType);
@@ -1562,7 +1652,7 @@ function expandStitchName(shortName) {
                     });
                     
                     redrawCanvas();
-                    updatePatternFromGrid(); // Update the formatted pattern
+                    //updatePatternFromGrid(); // Update the formatted pattern
                 }
             }
             hideContextMenu();

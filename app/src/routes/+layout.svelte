@@ -2,6 +2,7 @@
   import '../lib/App.css';
   import { page } from '$app/stores';
   import { SvelteFlowProvider } from '@xyflow/svelte';
+  import UserStudyControls from '../lib/UserStudyControls.svelte';
 </script>
 
 <SvelteFlowProvider>
@@ -35,8 +36,23 @@
         <span class="tooltip"><img src="data/Chart-Symbol.jpg" alt="Help" style="width: 250px;" />
         </span>
       </span>
+      
+      <div class="nav-right">
+        <UserStudyControls />
+      </div>
     </nav>
   </header>
 
   <slot />
-</SvelteFlowProvider> 
+</SvelteFlowProvider>
+
+<style>
+  .nav-right {
+    margin-left: auto;
+  }
+  
+  .nav-menu {
+    display: flex;
+    align-items: center;
+  }
+</style> 

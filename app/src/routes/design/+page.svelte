@@ -12,6 +12,8 @@
   import { patternToLoad, nodeDataStore, updateNodeData } from '$lib/store';
   import { propagateData } from '$lib/NodeDataPropagation.svelte';
   import { mergeWithDefaultPatterns, getDefaultPatterns } from '$lib/utils/defaultPatterns.js';
+  import { logAction, ActionTypes } from '$lib/utils/userStudyLogger';
+  import UserStudyControls from '$lib/UserStudyControls.svelte';
   import PatternNode from './PatternNode.svelte';
   import TextNode from './TextNode.svelte';
   import ExportNode from './ExportNode.svelte';
@@ -35,6 +37,8 @@
     $nodes.forEach(node => {
       updateNodeData(node.id, node.data);
     });
+    
+    // Set the current phase to project composition when in design view
   }
 
   // Watch for node deletions
@@ -63,6 +67,9 @@
     
     // If any nodes were deleted, refresh all export nodes
     if (deletedNodeIds.length > 0) {
+      // Log node deletion
+      logAction(ActionTypes.NODE_DELETE, `Nodes deleted: ${deletedNodeIds.join(', ')}`);
+      
       console.log(`Nodes were deleted: ${deletedNodeIds.join(', ')}, refreshing export nodes`);
       
       // Find all edges that reference deleted nodes
@@ -258,6 +265,12 @@
     nextNodeId++;
     $nodes = [...$nodes, newNode];
     
+    // Log node addition
+    logAction(ActionTypes.NODE_ADD, `Pattern node added: ${pattern.name}`, {
+      position,
+      nodeType: 'pattern'
+    });
+    
     // Add node data to store
     updateNodeData(newNode.id, newNode.data);
   }
@@ -282,6 +295,12 @@
     nextNodeId++;
     $nodes = [...$nodes, newNode];
     
+    // Log node addition
+    logAction(ActionTypes.NODE_ADD, 'Text node added', {
+      position,
+      nodeType: 'text'
+    });
+    
     // Add node data to store
     updateNodeData(newNode.id, newNode.data);
   }
@@ -300,6 +319,12 @@
     
     nextNodeId++;
     $nodes = [...$nodes, newNode];
+    
+    // Log node addition
+    logAction(ActionTypes.NODE_ADD, 'Export node added', {
+      position,
+      nodeType: 'export'
+    });
     
     // Add node data to store
     updateNodeData(newNode.id, newNode.data);
@@ -410,6 +435,12 @@
     if (params.source && params.target) {
       console.log('Adding edge:', params.source, '->', params.target);
       
+      // Log connection
+      logAction(ActionTypes.NODE_ADD, `Edge added: ${params.source} -> ${params.target}`, {
+        source: params.source,
+        target: params.target
+      });
+      
       // Update edges using addEdge helper
       $edges = addEdge(params, $edges);
       
@@ -440,10 +471,6 @@
     }
   }
 
-  // Handle edge changes
-  function handleEdgesChange(event) {
-    console.log('Edges changed:', event);
-  }
 
   // Load pattern into the main editor
   function loadPatternToEditor(nodeId) {
@@ -463,6 +490,10 @@
 
   // Function to save the current flow as a template
   function saveCurrentFlow() {
+    // Record pattern save/export    
+    // Log save action
+    logAction(ActionTypes.SAVE, 'Flow saved as template');
+    
     // Ask for a name for this flow
     const flowName = prompt('Enter a name for this flow template:');
     if (!flowName) return; // User cancelled
@@ -501,6 +532,11 @@
   
   // Function to load a saved flow
   function loadFlow(flow) {
+    // Record project composition activity
+    
+    // Log loading action
+    logAction(ActionTypes.VISUALIZATION_CHANGE, `Flow template loaded: ${flow.name}`);
+    
     if (confirm('Loading a flow template will replace your current design. Continue?')) {
       // Set the nodes and edges from the saved flow
       nodes.set(flow.nodes);
@@ -534,6 +570,12 @@
   
   // Function to delete a saved flow
   function deleteFlow(id) {
+    // Record correction
+    
+    // Log deletion
+    const flowToDelete = savedFlows.find(f => f.id === id);
+    logAction(ActionTypes.NODE_DELETE, `Flow template deleted: ${flowToDelete?.name || id}`);
+    
     if (confirm('Are you sure you want to delete this flow template?')) {
       // Filter out the flow to delete
       savedFlows = savedFlows.filter(f => f.id !== id);
@@ -544,6 +586,8 @@
   }
 
   onMount(() => {
+    // Set the current phase to project composition when in design view
+    
     // Load saved patterns from localStorage
     let userPatterns = [];
     const saved = localStorage.getItem('savedPatterns');
@@ -617,6 +661,29 @@
     initialNodes.forEach(node => {
       updateNodeData(node.id, node.data);
     });
+
+    // Set the current phase to project composition when in design view
+    
+    // Enhance existing functions with metrics tracking
+    const originalHandleConnect = handleConnect;
+    handleConnect = (params) => {
+      originalHandleConnect(params);
+    };
+    
+    const originalSaveCurrentFlow = saveCurrentFlow;
+    saveCurrentFlow = () => {
+      originalSaveCurrentFlow();
+    };
+    
+    const originalLoadFlow = loadFlow;
+    loadFlow = (flow) => {
+      originalLoadFlow(flow);
+    };
+    
+    const originalDeleteFlow = deleteFlow;
+    deleteFlow = (id) => {
+      originalDeleteFlow(id);
+    };
   });
 
   // Flow configuration
@@ -692,6 +759,49 @@
       timestamp: new Date().toISOString()
     };
     
+    // Log save action
+    logAction(ActionTypes.SAVE, `Pattern saved to library: ${customName}`);
+    
+    // Record pattern save/export
+    
+    // Load existing patterns from localStorage
+    let userPatterns = [];
+    const saved = localStorage.getItem('savedPatterns');
+    if (saved) {
+      try {
+        userPatterns = JSON.parse(saved);
+      } catch (error) {
+        console.error('Error parsing saved patterns:', error);
+      }
+    }
+    
+    // Add the new pattern
+    userPatterns.push(newPattern);
+    
+    // Save back to localStorage
+    localStorage.setItem('savedPatterns', JSON.stringify(userPatterns));
+    
+    // Update the patterns in the sidebar
+    savedPatterns = mergeWithDefaultPatterns(userPatterns);
+    
+    alert(`Pattern "${customName}" saved to library!`);
+  }
+
+  // Add metrics tracking to the SvelteFlow component
+  function handleNodesChange(event) {
+    // Track node deletions for metrics
+    if (event.detail.some(change => change.type === 'remove')) {
+    }
+  }
+  
+  function handleEdgesChange(event) {
+    // Track edge deletions for metrics
+    if (event.detail.some(change => change.type === 'remove')) {
+    }
+    handleEdgesChange(event);
+  }
+
+  function savePatternToLibrary(pattern, customName) {
     // Load existing patterns from localStorage
     let userPatterns = [];
     const saved = localStorage.getItem('savedPatterns');
@@ -1054,5 +1164,11 @@
     padding: 2px 6px;
     border-radius: 4px;
     align-self: flex-start;
+  }
+
+  .user-study-section {
+    margin: 1rem 0;
+    padding: 0.5rem;
+    border-bottom: 1px solid #ddd;
   }
 </style>
