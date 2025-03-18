@@ -1,5 +1,5 @@
 <script>
-  import { startLogging, stopLogging, exportLogs, clearLogs, isLogging } from './utils/userStudyLogger';
+  import { startLogging, stopLogging, exportLogs, exportCurrentSessionAsCSV, clearLogs, isLogging, setParticipantInfo, restoreSessionFromStorage } from './utils/userStudyLogger';
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
 
@@ -42,26 +42,39 @@
   }
 
   onMount(() => {
-    // Check if there's an active study session from localStorage
-    try {
-      const savedState = localStorage.getItem('userStudyState');
-      if (savedState) {
-        const parsedState = JSON.parse(savedState);
-        
-        // Only restore if session is actually active to prevent sticky states
-        if (parsedState.active) {
-          studyState.set(parsedState);
-          updateStats();
-          startStatsInterval();
-        } else {
-          // Clear localStorage if the saved state isn't active
-          localStorage.removeItem('userStudyState');
+    // First check sessionStorage for an active session (handles page refreshes)
+    if (restoreSessionFromStorage()) {
+      console.log("Restored user study session from sessionStorage");
+      studyState.update(state => ({
+        ...state,
+        active: true,
+        participantId: participantId,
+        taskNumber: taskNumber
+      }));
+      updateStats();
+      startStatsInterval();
+    } else {
+      // Otherwise check localStorage for saved state
+      try {
+        const savedState = localStorage.getItem('userStudyState');
+        if (savedState) {
+          const parsedState = JSON.parse(savedState);
+          
+          // Only restore if session is actually active to prevent sticky states
+          if (parsedState.active) {
+            studyState.set(parsedState);
+            updateStats();
+            startStatsInterval();
+          } else {
+            // Clear localStorage if the saved state isn't active
+            localStorage.removeItem('userStudyState');
+          }
         }
+      } catch (error) {
+        console.error('Error loading study state:', error);
+        // Clear potentially corrupted state
+        localStorage.removeItem('userStudyState');
       }
-    } catch (error) {
-      console.error('Error loading study state:', error);
-      // Clear potentially corrupted state
-      localStorage.removeItem('userStudyState');
     }
     
     return () => {
@@ -85,24 +98,51 @@
 
   function updateStats() {
     if (studyActive) {
-      const currentLogs = JSON.parse(localStorage.getItem('userStudyLogs') || '[]');
-      if (currentLogs.length > 0) {
-        const currentSession = currentLogs[currentLogs.length - 1];
-        if (currentSession && currentSession.actions) {
-          const startTime = new Date(currentSession.startTime);
-          const duration = Math.floor((new Date() - startTime) / 1000);
-          const actionCount = currentSession.actions.length;
-          
-          studyState.update(state => ({
-            ...state, 
-            sessionStats: {
-              ...state.sessionStats,
-              startTime,
-              duration,
-              actionCount
-            }
-          }));
+      try {
+        // First try to get stats from sessionStorage (current session)
+        const currentSession = sessionStorage.getItem('currentUserStudySession');
+        if (currentSession) {
+          const session = JSON.parse(currentSession);
+          if (session && session.actions) {
+            const startTime = new Date(session.startTime);
+            const duration = Math.floor((new Date() - startTime) / 1000);
+            const actionCount = session.actions.length;
+            
+            studyState.update(state => ({
+              ...state, 
+              sessionStats: {
+                ...state.sessionStats,
+                startTime,
+                duration,
+                actionCount
+              }
+            }));
+            return;
+          }
         }
+        
+        // Fallback to localStorage if sessionStorage doesn't have current data
+        const currentLogs = JSON.parse(localStorage.getItem('userStudyLogs') || '[]');
+        if (currentLogs.length > 0) {
+          const currentSession = currentLogs[currentLogs.length - 1];
+          if (currentSession && currentSession.actions) {
+            const startTime = new Date(currentSession.startTime);
+            const duration = Math.floor((new Date() - startTime) / 1000);
+            const actionCount = currentSession.actions.length;
+            
+            studyState.update(state => ({
+              ...state, 
+              sessionStats: {
+                ...state.sessionStats,
+                startTime,
+                duration,
+                actionCount
+              }
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error updating stats:', error);
       }
     }
   }
@@ -120,7 +160,10 @@
         // Export logs with custom filename
         exportLogsWithFilename(filename, logData);
         
-        alert(`User study ended. Log data saved as "${filename}".`);
+        // Also export a final CSV with all data
+        const csvFilename = exportCurrentSessionAsCSV();
+        
+        alert(`User study ended. Log data saved as:\n1. JSON: ${filename}\n2. CSV: ${csvFilename}`);
         stopStatsInterval();
       }
       
@@ -155,8 +198,11 @@
     // Close the dialog
     showStudyDialog = false;
     
+    // Set participant info in the logger
+    setParticipantInfo(participantId, taskNumber);
+    
     // Start logging
-    startLogging();
+    startLogging(participantId, taskNumber);
     
     // Update study state
     studyState.update(state => ({
@@ -175,7 +221,7 @@
     
     startStatsInterval();
     
-    alert(`User study started for ${participantId ? 'Participant ' + participantId : 'anonymous participant'}, Task ${taskNumber}. All actions will be logged.`);
+    alert(`User study started for ${participantId ? 'Participant ' + participantId : 'anonymous participant'}, Task ${taskNumber}.\nLog data will be preserved between page refreshes and saved when you end the study.`);
   }
   
   function cancelStudyStart() {
@@ -200,8 +246,16 @@
       
       localStorage.removeItem('userStudyState');
       localStorage.removeItem('activeUserStudySession');
+      sessionStorage.removeItem('currentUserStudySession');
       
       alert('Study state has been cleared.');
+    }
+  }
+  
+  function downloadCurrentCSV() {
+    if (studyActive) {
+      const csvFilename = exportCurrentSessionAsCSV();
+      alert(`Current session logs saved as "${csvFilename}".`);
     }
   }
   
@@ -238,6 +292,27 @@
 </script>
 
 <div class="user-study-controls">
+  {#if studyActive}
+    <div class="study-stats">
+      <div class="stat-item">
+        <span class="stat-label">Duration:</span>
+        <span class="stat-value">{formatDuration(sessionStats.duration)}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Actions:</span>
+        <span class="stat-value">{sessionStats.actionCount}</span>
+      </div>
+      <div class="stat-actions">
+        <button class="action-button" on:click={downloadCurrentCSV} title="Download current logs as CSV">
+          📄 Save CSV
+        </button>
+        <button class="reset-button" on:click={clearStudyState} title="Clear study state">
+          Reset
+        </button>
+      </div>
+    </div>
+  {/if}
+  
   <button 
     class="user-study-button" 
     class:active={studyActive} 
@@ -274,6 +349,17 @@
             <option value="2">Task 2: Editing</option>
             <option value="3">Task 3: Project Composition</option>
           </select>
+        </div>
+        <div class="info-box">
+          <p>
+            <strong>📝 How logging works:</strong>
+          </p>
+          <ul>
+            <li>Log data is saved automatically during your session</li>
+            <li>Data persists between page refreshes</li>
+            <li>CSV and JSON files are created when you click "End User Study"</li>
+            <li>Use "Save CSV" button to download current logs at any time</li>
+          </ul>
         </div>
       </div>
       <div class="dialog-buttons">
@@ -351,6 +437,28 @@
     gap: 4px;
   }
   
+  .info-box {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  
+  .info-box p {
+    margin: 0 0 8px 0;
+  }
+  
+  .info-box ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  
+  .info-box li {
+    margin-bottom: 4px;
+  }
+  
   label {
     font-size: 12px;
     font-weight: bold;
@@ -389,6 +497,26 @@
     font-size: 16px;
   }
   
+  .stat-actions {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .action-button {
+    padding: 4px 8px;
+    background-color: #4299e1;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+  }
+  
+  .action-button:hover {
+    background-color: #3182ce;
+  }
+  
   .reset-button {
     padding: 4px 8px;
     background-color: #ff4444;
@@ -422,7 +550,7 @@
     background-color: white;
     border-radius: 8px;
     padding: 20px;
-    width: 400px;
+    width: 450px;
     max-width: 90%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   }

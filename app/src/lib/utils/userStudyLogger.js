@@ -9,6 +9,8 @@
 let isLoggingActive = false;
 let sessionStartTime = null;
 let sessionId = null;
+let participantId = 'anonymous';
+let taskNumber = '0';
 let actionLog = [];
 
 // Track last visualization state to prevent duplicate logs
@@ -18,14 +20,21 @@ let lastVisualizationState = {
   timestamp: null
 };
 
+// CSV header for the log file
+const CSV_HEADER = "timestamp,timeElapsed,actionType,description,details\n";
+
 /**
  * Start a new user study logging session
+ * @param {string} pid - Participant ID
+ * @param {string} task - Task number
  * @returns {string} The ID of the new session
  */
-export function startLogging() {
+export function startLogging(pid = 'anonymous', task = '0') {
   isLoggingActive = true;
   sessionStartTime = new Date();
   sessionId = `study-session-${sessionStartTime.toISOString()}`;
+  participantId = pid || 'anonymous';
+  taskNumber = task || '0';
   actionLog = [];
   
   // Reset visualization state tracking
@@ -63,6 +72,8 @@ export function stopLogging() {
   // Create the complete log data
   const logData = {
     sessionId,
+    participantId,
+    taskNumber,
     startTime: sessionStartTime.toISOString(),
     endTime: new Date().toISOString(),
     actions: actionLog
@@ -71,6 +82,7 @@ export function stopLogging() {
   // Save the complete log to localStorage
   saveLogToLocalStorage(logData);
   
+  // Also return the log data
   return logData;
 }
 
@@ -123,8 +135,64 @@ export function logAction(actionType, description, details = {}) {
   // Add to in-memory log
   actionLog.push(action);
   
+  // Save to session storage for persistence between refreshes
+  saveSessionToStorage();
+  
   // Log to console for debugging
   console.log(`[USER STUDY] ${action.actionType}: ${action.description}`);
+}
+
+/**
+ * Save the current session to sessionStorage to preserve between refreshes
+ */
+function saveSessionToStorage() {
+  try {
+    const currentSession = {
+      sessionId,
+      startTime: sessionStartTime,
+      actions: actionLog,
+      participantId,
+      taskNumber
+    };
+    sessionStorage.setItem('currentUserStudySession', JSON.stringify(currentSession));
+  } catch (error) {
+    console.error('Error saving session to storage:', error);
+  }
+}
+
+/**
+ * Restore session from storage if available
+ */
+export function restoreSessionFromStorage() {
+  try {
+    const savedSession = sessionStorage.getItem('currentUserStudySession');
+    if (savedSession) {
+      const session = JSON.parse(savedSession);
+      sessionId = session.sessionId;
+      sessionStartTime = new Date(session.startTime);
+      actionLog = session.actions;
+      participantId = session.participantId || 'anonymous';
+      taskNumber = session.taskNumber || '0';
+      isLoggingActive = true;
+      return true;
+    }
+  } catch (error) {
+    console.error('Error restoring session from storage:', error);
+  }
+  return false;
+}
+
+/**
+ * Format an action as a CSV row
+ * @param {Object} action - The action to format
+ * @returns {string} CSV formatted row
+ */
+function formatActionAsCSV(action) {
+  // Format the details as a JSON string, escaped for CSV
+  const detailsStr = JSON.stringify(action.details).replace(/"/g, '""');
+  
+  // Create CSV row with proper escaping
+  return `"${action.timestamp}",${action.timeElapsed},"${action.actionType}","${action.description.replace(/"/g, '""')}","${detailsStr}"\n`;
 }
 
 /**
@@ -148,6 +216,9 @@ function saveLogToLocalStorage(logData) {
   
   // Save back to localStorage
   localStorage.setItem('userStudyLogs', JSON.stringify(savedLogs));
+  
+  // Clear session storage since we've saved the completed log
+  sessionStorage.removeItem('currentUserStudySession');
 }
 
 /**
@@ -181,11 +252,48 @@ export function exportLogs() {
 }
 
 /**
+ * Export current session logs as a single CSV file
+ */
+export function exportCurrentSessionAsCSV() {
+  if (!actionLog.length) {
+    console.warn('No logs in current session to export');
+    return;
+  }
+  
+  // Create CSV content
+  let csvContent = CSV_HEADER;
+  
+  // Add all action rows
+  actionLog.forEach(action => {
+    csvContent += formatActionAsCSV(action);
+  });
+  
+  // Download the complete CSV
+  const filename = `user-study-P${participantId}-T${taskNumber}-${new Date().toISOString().split('.')[0].replace(/:/g, '-')}.csv`;
+  
+  // Create a blob with the CSV data
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  
+  // Create a download link
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  return filename;
+}
+
+/**
  * Clear all saved logs from localStorage
  */
 export function clearLogs() {
   localStorage.removeItem('userStudyLogs');
   localStorage.removeItem('activeUserStudySession');
+  sessionStorage.removeItem('currentUserStudySession');
 }
 
 /**
@@ -194,6 +302,12 @@ export function clearLogs() {
  */
 export function isLogging() {
   return isLoggingActive;
+}
+
+// Set participant and task information
+export function setParticipantInfo(pid, task) {
+  participantId = pid || participantId;
+  taskNumber = task || taskNumber;
 }
 
 // Action type constants
