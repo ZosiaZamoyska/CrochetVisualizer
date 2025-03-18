@@ -1619,19 +1619,24 @@ function expandStitchName(shortName) {
         }}
         on:changeColor={(event) => {
             const color = event.detail;
+            
             if (p5Instance) {
                 const selectedNodes = p5Instance.getSelectedNodes();
                 if (selectedNodes && selectedNodes.length > 0) {
                     gridEditing = true; // Enter grid editing mode
-                    
-                    // Get unique stitch types in the selection
+                    logAction(ActionTypes.COLOR_CHANGE, 'Stitch color updated', {
+                        pattern: patternInput,
+                        grid: grid,
+                        selectedNodes: selectedNodes,
+                        newColor: color,
+                      });
+
                     const uniqueStitchTypes = new Set();
                     selectedNodes.forEach(node => {
                         if (node.stitch) {
                             uniqueStitchTypes.add(node.stitch);
                         }
                     });
-                    
                     // For each unique stitch type, create a new custom stitch with the selected color
                     uniqueStitchTypes.forEach(stitchType => {
                         // Create a new stitch name based on the original stitch type and color
@@ -1643,7 +1648,6 @@ function expandStitchName(shortName) {
                              customStitches = [...customStitches, { name: newStitchName, color: color }];
                              stitchesType = [...stitchesType, newStitchName];
                          }
-                        
                         // Find nodes of this stitch type
                         const nodesOfThisType = selectedNodes.filter(node => node.stitch === stitchType);
                         

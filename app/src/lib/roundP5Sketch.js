@@ -563,8 +563,14 @@ let centerX, centerY;
     
     // Make sure these are properly exposed
     p5.getSelectedNodes = () => {
+        // get unique selected nodes
         const nodes = selectionHandler ? selectionHandler.getSelectedNodes() : [];
-        return nodes;
+        const uniqueNodes = nodes.filter((node, index, self) =>
+            index === self.findIndex((n) => 
+              n.x === node.x && n.y === node.y && n.stitch === node.stitch
+            )
+          );
+        return uniqueNodes;
     };
     p5.deleteSelectedNodes = deleteSelectedNodes;
     p5.duplicateSelectedNodes = duplicateSelectedNodes;

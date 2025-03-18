@@ -365,10 +365,17 @@ export function createBasicP5Instance(p5, grid, stitchesDone, isPlaying, vertica
     }
 
     // Make sure these are properly exposed
+    
     p5.getSelectedNodes = () => {
         const nodes = selectionHandler ? selectionHandler.getSelectedNodes() : [];
-        console.log("getSelectedNodes called, returning:", nodes);
-        return nodes;
+        const uniqueNodes = nodes.filter((node, index, self) =>
+            index === self.findIndex((n) => 
+              n.x === node.x && n.y === node.y && n.stitch === node.stitch
+            )
+          );
+        console.log("getSelectedNodes called, returning:", uniqueNodes);
+        // get unique selected nodes
+        return  uniqueNodes;
     };
     p5.deleteSelectedNodes = deleteSelectedNodes;
     p5.duplicateSelectedNodes = duplicateSelectedNodes;

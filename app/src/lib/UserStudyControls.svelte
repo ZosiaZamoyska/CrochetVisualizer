@@ -1,27 +1,74 @@
 <script>
   import { startLogging, stopLogging, exportLogs, clearLogs, isLogging } from './utils/userStudyLogger';
   import { onMount } from 'svelte';
+  import { writable } from 'svelte/store';
 
-  let studyActive = false;
-  let participantId = '';
-  let taskNumber = '1';
+  // Create a writable store for the study state
+  const studyState = writable({
+    active: false,
+    participantId: '',
+    taskNumber: '1',
+    sessionStats: {
+      startTime: null,
+      duration: 0,
+      actionCount: 0
+    }
+  });
+
   let showStudyDialog = false;
-  let sessionStats = {
-    startTime: null,
-    duration: 0,
-    actionCount: 0
-  };
-
   let statsInterval;
+
+  // Local variables bound to the store
+  let studyActive;
+  let participantId;
+  let taskNumber;
+  let sessionStats;
+
+  // Subscribe to the store to keep local variables in sync
+  const unsubscribe = studyState.subscribe(state => {
+    studyActive = state.active;
+    participantId = state.participantId;
+    taskNumber = state.taskNumber;
+    sessionStats = state.sessionStats;
+  });
+
+  // Update store values when local variables change
+  $: if (participantId !== undefined) {
+    studyState.update(state => ({...state, participantId}));
+  }
+
+  $: if (taskNumber !== undefined) {
+    studyState.update(state => ({...state, taskNumber}));
+  }
 
   onMount(() => {
     // Check if there's an active study session from localStorage
-    const activeSession = localStorage.getItem('activeUserStudySession');
-    if (activeSession) {
-      studyActive = true;
-      updateStats();
-      startStatsInterval();
+    try {
+      const savedState = localStorage.getItem('userStudyState');
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        
+        // Only restore if session is actually active to prevent sticky states
+        if (parsedState.active) {
+          studyState.set(parsedState);
+          updateStats();
+          startStatsInterval();
+        } else {
+          // Clear localStorage if the saved state isn't active
+          localStorage.removeItem('userStudyState');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading study state:', error);
+      // Clear potentially corrupted state
+      localStorage.removeItem('userStudyState');
     }
+    
+    return () => {
+      // Clean up subscription when component is destroyed
+      unsubscribe();
+      if (statsInterval) clearInterval(statsInterval);
+    };
   });
 
   function startStatsInterval() {
@@ -42,9 +89,19 @@
       if (currentLogs.length > 0) {
         const currentSession = currentLogs[currentLogs.length - 1];
         if (currentSession && currentSession.actions) {
-          sessionStats.startTime = new Date(currentSession.startTime);
-          sessionStats.actionCount = currentSession.actions.length;
-          sessionStats.duration = Math.floor((new Date() - sessionStats.startTime) / 1000);
+          const startTime = new Date(currentSession.startTime);
+          const duration = Math.floor((new Date() - startTime) / 1000);
+          const actionCount = currentSession.actions.length;
+          
+          studyState.update(state => ({
+            ...state, 
+            sessionStats: {
+              ...state.sessionStats,
+              startTime,
+              duration,
+              actionCount
+            }
+          }));
         }
       }
     }
@@ -66,7 +123,22 @@
         alert(`User study ended. Log data saved as "${filename}".`);
         stopStatsInterval();
       }
-      studyActive = false;
+      
+      // Reset the study state
+      studyState.set({
+        active: false,
+        participantId: '',
+        taskNumber: '1',
+        sessionStats: {
+          startTime: null,
+          duration: 0,
+          actionCount: 0
+        }
+      });
+      
+      // Clear from localStorage
+      localStorage.removeItem('userStudyState');
+      localStorage.removeItem('activeUserStudySession');
     } else {
       // Show dialog to collect participant info before starting
       showStudyDialog = true;
@@ -85,18 +157,52 @@
     
     // Start logging
     startLogging();
-    sessionStats.startTime = new Date();
-    sessionStats.actionCount = 0;
-    sessionStats.duration = 0;
-    startStatsInterval();
     
-    studyActive = true;
+    // Update study state
+    studyState.update(state => ({
+      ...state,
+      active: true,
+      sessionStats: {
+        startTime: new Date(),
+        duration: 0,
+        actionCount: 0
+      }
+    }));
+    
+    // Save state to localStorage
+    const currentState = { active: true, participantId, taskNumber, sessionStats };
+    localStorage.setItem('userStudyState', JSON.stringify(currentState));
+    
+    startStatsInterval();
     
     alert(`User study started for ${participantId ? 'Participant ' + participantId : 'anonymous participant'}, Task ${taskNumber}. All actions will be logged.`);
   }
   
   function cancelStudyStart() {
     showStudyDialog = false;
+  }
+  
+  function clearStudyState() {
+    if (confirm('Are you sure you want to clear the current study state? This will not delete logs but will reset the active session.')) {
+      stopStatsInterval();
+      stopLogging();
+      
+      studyState.set({
+        active: false,
+        participantId: '',
+        taskNumber: '1',
+        sessionStats: {
+          startTime: null,
+          duration: 0,
+          actionCount: 0
+        }
+      });
+      
+      localStorage.removeItem('userStudyState');
+      localStorage.removeItem('activeUserStudySession');
+      
+      alert('Study state has been cleared.');
+    }
   }
   
   function exportLogsWithFilename(filename, logData) {
@@ -264,6 +370,7 @@
     padding: 8px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
   }
   
   .stat-item {
@@ -280,6 +387,21 @@
   .stat-value {
     font-weight: bold;
     font-size: 16px;
+  }
+  
+  .reset-button {
+    padding: 4px 8px;
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+  }
+  
+  .reset-button:hover {
+    background-color: #cc3333;
   }
   
   /* Dialog styles */
