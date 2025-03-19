@@ -7,7 +7,7 @@
 
 <SvelteFlowProvider>
   <header class="header">
-    <h1 class="header-title">Crochet Pattern Visualizer</h1>
+    <h1 class="header-title">StitchMarker</h1>
 
     <nav class="nav-menu">
       <a 
