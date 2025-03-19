@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { writable } from 'svelte/store';
-  import { parsePattern, grid } from './parser.svelte';
+  import { parsePattern, grid, setGrid } from './parser.svelte';
   import { createBasicP5Instance } from './basicP5Sketch.js';
   import { createPhysicsP5Instance } from './physicsp5Sketch.js';
   import { createExpertP5Instance } from './expertP5Sketch.js';
@@ -139,7 +139,9 @@
     "Flat - Random": "ch ch ch ch dc sc sc sc sc ch sc sc ch sc sc sc",
     "Round - Basic Circle": "ch ch ch ch ch ch sc sc sc sc sc",
     "Round - Increasing Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc sc",
-    "Round - Two Round Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc ch sc sc sc sc sc sc sc sc sc sc sc"
+    "Round - Two Round Circle": "ch ch ch ch ch ch sc sc sc sc sc sc sc sc sc sc sc ch sc sc sc sc sc sc sc sc sc sc sc",
+    "Round - Example 1": "ch ch ch ch ch ch sc sc sc sc sc",
+    "Round - Example 2": "ch ch ch ch ch ch sc ch ch sc ch ch sc ch ch sc ch ch sc ch ch",
   };
 
   // Function to update patternInput and parse the pattern
@@ -828,8 +830,9 @@ function expandStitchName(shortName) {
   function loadPattern(pattern) {
     console.log('Loading pattern:', pattern); // Debugging line
     if (pattern) {
-        // Set the patternInput to the pattern string
-        patternInput = pattern.pattern;
+        // Set the patternInput to the pattern string, falling back to formattedPattern if pattern is empty
+        patternInput = pattern.pattern || pattern.formattedPattern;
+        
         // Set other properties as needed
         chColor = pattern.colors?.ch;
         scColor = pattern.colors?.sc;
@@ -855,12 +858,18 @@ function expandStitchName(shortName) {
             angle = pattern.angle;
         }
 
-        // Call parsePattern to update the grid
-        parsePattern(patternInput.trim());
-        
-        // Load custom node colors if available
-        if (pattern.colorMap) {
-            grid.colorMap = pattern.colorMap;
+        // If we have a saved grid, set it directly
+        if (pattern.grid) {
+            setGrid(pattern.grid);
+            // Also set the colorMap if available
+            if (pattern.colorMap) {
+                grid.colorMap = pattern.colorMap;
+            }
+        } else if (patternInput) {
+            // Only parse pattern if we don't have a grid
+            parsePattern(patternInput.trim());
+        } else {
+            console.error('Pattern has no grid or content to parse'); // Error handling
         }
         
         //redrawCanvas();

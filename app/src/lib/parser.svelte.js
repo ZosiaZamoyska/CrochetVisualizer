@@ -3,6 +3,10 @@ import { writable } from 'svelte/store';
 export let grid = [];
 export const patternInput = writable('');
 
+export function setGrid(newGrid) {
+    grid = newGrid;
+}
+
 export function parsePattern(input) {
     // make sure input is valid 
     /*if (input === null || input === undefined || input === '') {

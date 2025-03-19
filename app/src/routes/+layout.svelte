@@ -15,7 +15,7 @@
         class="nav-link" 
         class:active={$page.url.pathname === '/'}
       >
-        Make
+        Pattern Design
       </a>
       <a 
         href="/patterns" 
@@ -29,7 +29,7 @@
         class="nav-link" 
         class:active={$page.url.pathname === '/design'}
       >
-        Design
+        Project Composition
       </a>
       <span class="tooltip-container">
         &#63;

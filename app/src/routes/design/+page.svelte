@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
+  import { writable, get } from 'svelte/store';
   import {
     SvelteFlow,
     Background,
@@ -9,7 +9,7 @@
     addEdge
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import { patternToLoad, nodeDataStore, updateNodeData } from '$lib/store';
+  import { patternToLoad, nodeDataStore, updateNodeData, designCanvasState } from '$lib/store';
   import { propagateData } from '$lib/NodeDataPropagation.svelte';
   import { mergeWithDefaultPatterns, getDefaultPatterns } from '$lib/utils/defaultPatterns.js';
   import { logAction, ActionTypes } from '$lib/utils/userStudyLogger';
@@ -29,6 +29,15 @@
   let nodesInitialized = false;
   let previousEdges = [];
   let showFlowsMenu = false;
+
+  // Subscribe to nodes and edges changes to update the persistent store
+  $: if ($nodes && $edges) {
+    designCanvasState.set({
+      nodes: $nodes,
+      edges: $edges,
+      nextNodeId
+    });
+  }
 
   // Watch for changes in nodes
   $: if ($nodes.length > 0 && !nodesInitialized) {
@@ -625,42 +634,56 @@
     window.registerExportNode = registerExportNode;
     window.unregisterExportNode = unregisterExportNode;
 
-    // Initialize canvas with default nodes
-    const initialNodes = [
-      {
-        id: 'node-1',
-        type: 'fileName',
-        position: { x: 100, y: 100 },
-        data: { 
+    // Check if we have a saved canvas state
+    const savedState = get(designCanvasState);
+    if (savedState.nodes.length > 0) {
+      // Restore the saved state
+      $nodes = savedState.nodes;
+      $edges = savedState.edges;
+      nextNodeId = savedState.nextNodeId;
+      
+      // Initialize node data in the store
+      savedState.nodes.forEach(node => {
+        updateNodeData(node.id, node.data);
+      });
+    } else {
+      // Initialize canvas with default nodes
+      const initialNodes = [
+        {
           id: 'node-1',
-          label: 'File Name',
-          fileName: 'crochet-pattern',
-          instructions: [{
-            type: 'fileName',
-            fileName: 'crochet-pattern'
-          }]
-        }
-      },
-      {
-        id: 'node-2',
-        type: 'export',
-        position: { x: 700, y: 700 },
-        data: { 
+          type: 'fileName',
+          position: { x: 100, y: 100 },
+          data: { 
+            id: 'node-1',
+            label: 'File Name',
+            fileName: 'crochet-pattern',
+            instructions: [{
+              type: 'fileName',
+              fileName: 'crochet-pattern'
+            }]
+          }
+        },
+        {
           id: 'node-2',
-          label: 'Export Pattern',
-          instructions: []
+          type: 'export',
+          position: { x: 700, y: 700 },
+          data: { 
+            id: 'node-2',
+            label: 'Export Pattern',
+            instructions: []
+          }
         }
-      }
-    ];
+      ];
 
-    // Set initial nodes
-    $nodes = initialNodes;
-    nextNodeId = 3; // Set nextNodeId to 3 since we used 1 and 2
-    
-    // Initialize node data in the store
-    initialNodes.forEach(node => {
-      updateNodeData(node.id, node.data);
-    });
+      // Set initial nodes
+      $nodes = initialNodes;
+      nextNodeId = 3; // Set nextNodeId to 3 since we used 1 and 2
+      
+      // Initialize node data in the store
+      initialNodes.forEach(node => {
+        updateNodeData(node.id, node.data);
+      });
+    }
 
     // Set the current phase to project composition when in design view
     
