@@ -23,12 +23,6 @@ export const userStudyMetrics = writable({
   patternSaveExports: 0
 });
 
-// Store for design canvas state
-export const designCanvasState = writable({
-  nodes: [],
-  edges: [],
-  nextNodeId: 1
-});
 
 // Function to update node data and trigger propagation
 export function updateNodeData(nodeId, data) {

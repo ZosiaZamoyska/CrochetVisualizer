@@ -12,10 +12,10 @@ export function createRoundP5Instance(p5, grid, stitchesDone, isPlaying, roundSp
 let centerX, centerY;
     
     p5.setup = () => {
-        p5.createCanvas(800, 600);
+        p5.createCanvas(1200, 1200);
         p5.angleMode(p5.DEGREES);
-        centerX = p5.width / 2;
-        centerY = p5.height / 2;
+        centerX = p5.width / 2 ;
+        centerY = p5.height / 2 + 100 ;
         
         // We'll initialize the selection handler in the draw function
         // to ensure it has the correct reference to positions_null
